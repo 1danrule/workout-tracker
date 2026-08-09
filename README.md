@@ -78,9 +78,3 @@ Feel free to open issues or submit pull requests
 ## License
 
 MIT License
-
-Contributions are welcome. Feel free to open issues or submit pull requests.
-
-## License
-
-MIT License - see LICENSE file for details
