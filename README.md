@@ -1,23 +1,23 @@
 # WorkoutTracker
 
-A web application for tracking workouts and gym progress
+A web application for tracking workouts and gym progress.
 
-## 🎯 About
+## About
 
-WorkoutTracker is an open-source fitness tracking application for serious athletes. 
-Track your workouts, analyze your progress, and achieve your goals.
+WorkoutTracker is an open-source fitness tracking app built for people who train seriously. 
+It helps you log your workouts, track your progress over time, and stick to your goals.
 
-## ✨ Features
+## Features
 
-- 📊 Workout diary with weight, sets, and reps tracking
-- 📈 Progress charts for each exercise
-- 💪 Exercise library with descriptions
-- 🎯 Ready-made workout programs (Full Body, PPL, Upper/Lower)
-- ⚡ Custom workout builder
-- ⏱️ Rest timer between sets
-- 🧮 Calculators (1RM, working weights)
+- Workout diary with weight, sets, and reps tracking
+- Progress charts for each exercise
+- Exercise library with descriptions
+- Ready-made workout programs (Full Body, PPL, Upper/Lower)
+- Custom workout builder
+- Rest timer between sets
+- Calculators (1RM, working weights)
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 **Backend:**
 - Django + Django REST Framework
@@ -27,9 +27,9 @@ Track your workouts, analyze your progress, and achieve your goals.
 **Frontend:**
 - React
 - Tailwind CSS
-- Chart.js / Recharts
+- Recharts
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Python 3.10+
@@ -40,8 +40,8 @@ Track your workouts, analyze your progress, and achieve your goals.
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/fittracker.git
-cd fittracker
+git clone https://github.com/yourusername/workouttracker.git
+cd workouttracker
 ```
 
 2. Backend setup
@@ -61,7 +61,7 @@ npm install
 npm start
 ```
 
-## 📝 Roadmap
+## Roadmap
 
 - [ ] User authentication
 - [ ] Workout logging
@@ -71,10 +71,16 @@ npm start
 - [ ] PWA support
 - [ ] Nutrition tracking (v2.0)
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Feel free to open issues or submit pull requests.
+Feel free to open issues or submit pull requests
 
-## 📄 License
+## License
+
+MIT License
+
+Contributions are welcome. Feel free to open issues or submit pull requests.
+
+## License
 
 MIT License - see LICENSE file for details
