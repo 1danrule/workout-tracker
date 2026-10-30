@@ -31,4 +31,5 @@ class ProfileSerializer(serializers.ModelSerializer):
         fields = (
             'username', 'email',
             'weight_kg', 'height_cm', 'age', 'goal',
+            'sex', 'activity_level',
         )
