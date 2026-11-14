@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -77,7 +77,7 @@ export default function SearchScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [showScanner, setShowScanner] = useState(false);
   const [scanned, setScanned] = useState(false);
-  const [scannerLoading, setScannerLoading] = useState(false);
+  const isScanningRef = useRef(false);
 
   // Update pre-filled params if navigated here with new params
   useEffect(() => {
@@ -126,49 +126,56 @@ export default function SearchScreen() {
       const res = await requestPermission();
       if (!res.granted) {
         Alert.alert(
-          'Camera Permission Required',
-          'Camera access is required to scan food barcodes. Please enable camera access in your phone settings.'
+          "Camera Permission Required",
+          "Camera access is required to scan food barcodes. Please enable camera access in your phone settings."
         );
         return;
       }
     }
+    isScanningRef.current = false;
     setScanned(false);
     setShowScanner(true);
   };
 
   const handleBarcodeScanned = async ({ data }: { data: string }) => {
-    if (scanned || scannerLoading) return;
+    // Instant synchronous gatekeeper: prevents camera frame spam (30-60 fps)
+    if (isScanningRef.current) return;
+    isScanningRef.current = true;
     setScanned(true);
-    setScannerLoading(true);
+
+    // Immediately close camera view so it does not keep scanning or go black
+    setShowScanner(false);
+    setLoading(true);
 
     try {
       const product = await searchOFFBarcode(data);
-      setShowScanner(false);
       handleSelectFood(product, true);
     } catch (err: any) {
       Alert.alert(
-        'Product Not Found',
+        "Product Not Found",
         `No product found for barcode ${data}. Would you like to create a custom food with this barcode?`,
         [
           {
-            text: 'Cancel',
-            style: 'cancel',
+            text: "Cancel",
+            style: "cancel",
             onPress: () => {
+              isScanningRef.current = false;
               setScanned(false);
             },
           },
           {
-            text: 'Create Food',
+            text: "Create Food",
             onPress: () => {
-              setShowScanner(false);
               setCustomBarcode(data);
               setShowCreateModal(true);
+              isScanningRef.current = false;
+              setScanned(false);
             },
           },
         ]
       );
     } finally {
-      setScannerLoading(false);
+      setLoading(false);
     }
   };
 
@@ -716,7 +723,7 @@ export default function SearchScreen() {
                 <View style={[styles.corner, styles.cornerTR]} />
                 <View style={[styles.corner, styles.cornerBL]} />
                 <View style={[styles.corner, styles.cornerBR]} />
-                {scannerLoading && (
+                {false && (
                   <View style={styles.scannerLoadingBox}>
                     <ActivityIndicator size="large" color={Colors.primary} />
                     <Text style={styles.scannerLoadingText}>Searching product...</Text>
