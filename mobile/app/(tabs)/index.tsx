@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { getDailySummary, getDiaryEntries, deleteFoodEntry } from '../../services/api';
 import type { DailySummary, FoodEntry } from '../../types';
+import Svg, { Circle } from 'react-native-svg';
 
 const MEALS: Array<{ key: 'breakfast' | 'lunch' | 'dinner' | 'snack'; label: string; icon: string }> = [
   { key: 'breakfast', label: 'Breakfast', icon: 'sunny-outline' },
@@ -140,6 +141,12 @@ export default function DiaryScreen() {
   const fatTarget = summary?.targets?.fat_g ?? 65;
   const fatPercent = Math.min(Math.round((fatEaten / (fatTarget || 1)) * 100), 100);
 
+  const ringSize = 116;
+  const strokeWidth = 8;
+  const ringRadius = (ringSize - strokeWidth) / 2;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringDashoffset = ringCircumference - (Math.min(calPercent, 100) / 100) * ringCircumference;
+
   return (
     <View style={styles.container}>
       {/* Date Navigation Bar */}
@@ -185,10 +192,34 @@ export default function DiaryScreen() {
           <View style={styles.summaryCard}>
             <View style={styles.summaryTopRow}>
               <View style={styles.calorieRingContainer}>
-                <View style={styles.circleOuter}>
-                  <Text style={styles.calorieValue}>{Math.round(caloriesEaten)}</Text>
-                  <Text style={styles.calorieSubtext}>of {Math.round(caloriesTarget)} kcal</Text>
-                  <Text style={styles.percentText}>{calPercent}%</Text>
+                <View style={styles.ringWrapper}>
+                  <Svg width={ringSize} height={ringSize} style={styles.svgRing}>
+                    <Circle
+                      cx={ringSize / 2}
+                      cy={ringSize / 2}
+                      r={ringRadius}
+                      stroke={Colors.surfaceVariant}
+                      strokeWidth={strokeWidth}
+                      fill="none"
+                    />
+                    <Circle
+                      cx={ringSize / 2}
+                      cy={ringSize / 2}
+                      r={ringRadius}
+                      stroke={calPercent > 100 ? Colors.warning : Colors.calories}
+                      strokeWidth={strokeWidth}
+                      strokeDasharray={`${ringCircumference} ${ringCircumference}`}
+                      strokeDashoffset={ringDashoffset}
+                      strokeLinecap="round"
+                      fill="none"
+                      transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+                    />
+                  </Svg>
+                  <View style={styles.ringCenterText}>
+                    <Text style={styles.calorieValue}>{Math.round(caloriesEaten)}</Text>
+                    <Text style={styles.calorieSubtext}>of {Math.round(caloriesTarget)}</Text>
+                    <Text style={styles.percentText}>{calPercent}%</Text>
+                  </View>
                 </View>
               </View>
 
@@ -419,15 +450,21 @@ const styles = StyleSheet.create({
   calorieRingContainer: {
     marginRight: 16,
   },
-  circleOuter: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 6,
-    borderColor: Colors.calories,
-    backgroundColor: Colors.surfaceVariant,
+  ringWrapper: {
+    width: 116,
+    height: 116,
+    position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  svgRing: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  ringCenterText: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   calorieValue: {
     fontSize: 22,
