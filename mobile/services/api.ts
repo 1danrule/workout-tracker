@@ -188,9 +188,19 @@ export async function searchOFF(query: string, page = 1) {
   return parseJson(res);
 }
 
+export async function searchOFFBarcode(barcode: string) {
+  const res = await authFetch(`${API}/nutrition/off-barcode/?barcode=${encodeURIComponent(barcode)}`);
+  if (!res.ok) {
+    const errorData = await parseJson(res).catch(() => ({}));
+    throw new Error(errorData.error || 'Product not found by barcode');
+  }
+  return parseJson(res);
+}
+
 export async function createFood(data: {
   name: string;
   brand?: string;
+  barcode?: string;
   calories_per_100g: number;
   protein_per_100g: number;
   fat_per_100g: number;
@@ -293,4 +303,27 @@ export async function deleteWorkoutSet(workoutId: number, setId: number) {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to delete set');
+}
+
+// ---- Weight & Progress Analytics ----
+export async function getWeightHistory(days = 30) {
+  const res = await authFetch(`${API}/auth/weight-history/?days=${days}`);
+  if (!res.ok) throw new Error('Failed to load weight history');
+  return parseJson(res);
+}
+
+export async function logWeight(weight_kg: number, date: string) {
+  const res = await authFetch(`${API}/auth/weight-history/`, {
+    method: 'POST',
+    body: JSON.stringify({ weight_kg, date }),
+  });
+  if (!res.ok) throw new Error('Failed to log weight');
+  return parseJson(res);
+}
+
+// ---- Calorie Analytics ----
+export async function getCalorieHistory(days = 7) {
+  const res = await authFetch(`${API}/nutrition/calorie-history/?days=${days}`);
+  if (!res.ok) throw new Error('Failed to load calorie history');
+  return parseJson(res);
 }

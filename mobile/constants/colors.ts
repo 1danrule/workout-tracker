@@ -13,9 +13,15 @@ export const Colors = {
   warning: '#FF9800',
   // Macro colors
   calories: '#FF6B35',
+  caloriesLight: '#FFEBE5',
   protein: '#2196F3',
+  proteinLight: '#E3F2FD',
   fat: '#FF5722',
+  fatLight: '#FBE9E7',
+  fatDark: '#D84315',
   carbs: '#FFC107',
+  carbsLight: '#FFF8E1',
+  carbsDark: '#FFA000',
   // Misc
   white: '#FFFFFF',
   black: '#000000',

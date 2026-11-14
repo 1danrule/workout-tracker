@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,9 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Colors } from '../../constants/colors';
-import { searchFoods, searchOFF, createFood, addFoodEntry } from '../../services/api';
+import { searchFoods, searchOFF, searchOFFBarcode, createFood, addFoodEntry } from '../../services/api';
 import type { Food, OFFSearchResult } from '../../types';
 
 type TabType = 'my_foods' | 'off';
@@ -65,11 +66,18 @@ export default function SearchScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customBrand, setCustomBrand] = useState('');
+  const [customBarcode, setCustomBarcode] = useState('');
   const [customCalories, setCustomCalories] = useState('');
   const [customProtein, setCustomProtein] = useState('');
   const [customFat, setCustomFat] = useState('');
   const [customCarbs, setCustomCarbs] = useState('');
   const [creatingFood, setCreatingFood] = useState(false);
+
+  // Barcode Scanner state
+  const [permission, requestPermission] = useCameraPermissions();
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const isScanningRef = useRef(false);
 
   // Update pre-filled params if navigated here with new params
   useEffect(() => {
@@ -111,6 +119,64 @@ export default function SearchScreen() {
 
   const handleSearchSubmit = () => {
     performSearch(searchQuery, activeTab);
+  };
+
+  const handleOpenScanner = async () => {
+    if (!permission?.granted) {
+      const res = await requestPermission();
+      if (!res.granted) {
+        Alert.alert(
+          "Camera Permission Required",
+          "Camera access is required to scan food barcodes. Please enable camera access in your phone settings."
+        );
+        return;
+      }
+    }
+    isScanningRef.current = false;
+    setScanned(false);
+    setShowScanner(true);
+  };
+
+  const handleBarcodeScanned = async ({ data }: { data: string }) => {
+    // Instant synchronous gatekeeper: prevents camera frame spam (30-60 fps)
+    if (isScanningRef.current) return;
+    isScanningRef.current = true;
+    setScanned(true);
+
+    // Immediately close camera view so it does not keep scanning or go black
+    setShowScanner(false);
+    setLoading(true);
+
+    try {
+      const product = await searchOFFBarcode(data);
+      handleSelectFood(product, true);
+    } catch (err: any) {
+      Alert.alert(
+        "Product Not Found",
+        `No product found for barcode ${data}. Would you like to create a custom food with this barcode?`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => {
+              isScanningRef.current = false;
+              setScanned(false);
+            },
+          },
+          {
+            text: "Create Food",
+            onPress: () => {
+              setCustomBarcode(data);
+              setShowCreateModal(true);
+              isScanningRef.current = false;
+              setScanned(false);
+            },
+          },
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSelectFood = (food: Food | OFFSearchResult, isOFF: boolean) => {
@@ -198,6 +264,7 @@ export default function SearchScreen() {
       const created = await createFood({
         name: customName.trim(),
         brand: customBrand.trim(),
+        barcode: customBarcode.trim() || undefined,
         calories_per_100g: cals,
         protein_per_100g: prot,
         fat_per_100g: fat,
@@ -207,6 +274,7 @@ export default function SearchScreen() {
       setShowCreateModal(false);
       setCustomName('');
       setCustomBrand('');
+      setCustomBarcode('');
       setCustomCalories('');
       setCustomProtein('');
       setCustomFat('');
@@ -249,9 +317,13 @@ export default function SearchScreen() {
             returnKeyType="search"
             clearButtonMode="while-editing"
           />
-          {searchQuery.length > 0 && (
+          {searchQuery.length > 0 ? (
             <TouchableOpacity onPress={handleSearchSubmit} style={styles.searchSubmitButton}>
               <Text style={styles.searchSubmitText}>Search</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={handleOpenScanner} style={styles.scanIconButton}>
+              <Ionicons name="barcode-outline" size={22} color={Colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -278,14 +350,22 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {/* Action Bar: Create Custom Food */}
+      {/* Action Bar: Scan Barcode & Create Custom Food */}
       <View style={styles.actionBar}>
         <TouchableOpacity
-          style={styles.createFoodBarButton}
+          style={styles.actionButton}
+          onPress={handleOpenScanner}
+        >
+          <Ionicons name="scan-outline" size={18} color={Colors.primary} />
+          <Text style={styles.actionButtonText}>Scan Barcode</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
           onPress={() => setShowCreateModal(true)}
         >
-          <Ionicons name="add-circle" size={20} color={Colors.primary} />
-          <Text style={styles.createFoodBarText}>Create Custom Food</Text>
+          <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+          <Text style={styles.actionButtonText}>Create Food</Text>
         </TouchableOpacity>
       </View>
 
@@ -527,6 +607,16 @@ export default function SearchScreen() {
                 onChangeText={setCustomBrand}
               />
 
+              <Text style={styles.inputLabel}>Barcode (Optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g. 4032539018105"
+                placeholderTextColor={Colors.textLight}
+                value={customBarcode}
+                onChangeText={setCustomBarcode}
+                keyboardType="numeric"
+              />
+
               <Text style={[styles.inputLabel, { marginTop: 12, fontWeight: '700' }]}>
                 Nutritional Values (Per 100g)
               </Text>
@@ -596,6 +686,66 @@ export default function SearchScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* BARCODE SCANNER MODAL */}
+      <Modal
+        visible={showScanner}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowScanner(false)}
+      >
+        <View style={styles.scannerContainer}>
+          <CameraView
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            barcodeScannerSettings={{
+              barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'qr', 'code128', 'code39'],
+            }}
+            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+          />
+
+          {/* Scanner Overlay UI */}
+          <View style={styles.scannerOverlay}>
+            <View style={styles.scannerTopBar}>
+              <TouchableOpacity
+                onPress={() => setShowScanner(false)}
+                style={styles.scannerCloseButton}
+              >
+                <Ionicons name="close" size={28} color={Colors.white} />
+              </TouchableOpacity>
+              <Text style={styles.scannerTopTitle}>Scan Food Barcode</Text>
+              <View style={{ width: 44 }} />
+            </View>
+
+            <View style={styles.scanTargetWrapper}>
+              <View style={styles.scanTarget}>
+                <View style={[styles.corner, styles.cornerTL]} />
+                <View style={[styles.corner, styles.cornerTR]} />
+                <View style={[styles.corner, styles.cornerBL]} />
+                <View style={[styles.corner, styles.cornerBR]} />
+                {false && (
+                  <View style={styles.scannerLoadingBox}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                    <Text style={styles.scannerLoadingText}>Searching product...</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.scannerHint}>
+                Align barcode within the frame to scan
+              </Text>
+            </View>
+
+            <View style={styles.scannerBottomBar}>
+              <TouchableOpacity
+                style={styles.cancelScanBtn}
+                onPress={() => setShowScanner(false)}
+              >
+                <Text style={styles.cancelScanBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -656,12 +806,34 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: Colors.primary,
   },
+  scanIconButton: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   actionBar: {
     backgroundColor: Colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primaryLight,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primaryDark,
   },
   createFoodBarButton: {
     flexDirection: 'row',
@@ -903,5 +1075,125 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '700',
+  },
+  scannerContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  scannerOverlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  scannerTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 54 : 20,
+    paddingBottom: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  scannerTopTitle: {
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  scannerCloseButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scanTargetWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scanTarget: {
+    width: 260,
+    height: 200,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  corner: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderColor: Colors.primary,
+  },
+  cornerTL: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: 12,
+  },
+  cornerTR: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: 12,
+  },
+  cornerBL: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: 12,
+  },
+  cornerBR: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: 12,
+  },
+  scannerHint: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 20,
+    textAlign: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  scannerLoadingBox: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  scannerLoadingText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 10,
+  },
+  scannerBottomBar: {
+    paddingBottom: Platform.OS === 'ios' ? 48 : 24,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  cancelScanBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
+  cancelScanBtnText: {
+    color: Colors.white,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
