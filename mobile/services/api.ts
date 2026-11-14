@@ -200,6 +200,7 @@ export async function searchOFFBarcode(barcode: string) {
 export async function createFood(data: {
   name: string;
   brand?: string;
+  barcode?: string;
   calories_per_100g: number;
   protein_per_100g: number;
   fat_per_100g: number;
