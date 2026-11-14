@@ -188,6 +188,15 @@ export async function searchOFF(query: string, page = 1) {
   return parseJson(res);
 }
 
+export async function searchOFFBarcode(barcode: string) {
+  const res = await authFetch(`${API}/nutrition/off-barcode/?barcode=${encodeURIComponent(barcode)}`);
+  if (!res.ok) {
+    const errorData = await parseJson(res).catch(() => ({}));
+    throw new Error(errorData.error || 'Product not found by barcode');
+  }
+  return parseJson(res);
+}
+
 export async function createFood(data: {
   name: string;
   brand?: string;
