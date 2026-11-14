@@ -25,4 +25,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         # Always return the profile belonging to the logged-in user,
         # never let a user view/edit someone else's profile.
-        return Profile.objects.get(user=self.request.user)
+        # get_or_create guards against users who were created before the
+        # post_save signal was in place (e.g. via createsuperuser or fixtures).
+        profile, _ = Profile.objects.get_or_create(user=self.request.user)
+        return profile

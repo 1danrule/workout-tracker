@@ -205,3 +205,17 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+# Project dev notes (personal, not for git)
+DEV_NOTES.md
+HANDOFF.md
+
+# Node modules (mobile app)
+mobile/node_modules/
+mobile/.expo/
+
+# Expo build artifacts
+mobile/dist/
+mobile/ios/
+mobile/android/
