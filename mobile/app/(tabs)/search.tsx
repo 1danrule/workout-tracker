@@ -257,6 +257,7 @@ export default function SearchScreen() {
       const created = await createFood({
         name: customName.trim(),
         brand: customBrand.trim(),
+        barcode: customBarcode.trim() || undefined,
         calories_per_100g: cals,
         protein_per_100g: prot,
         fat_per_100g: fat,
@@ -597,6 +598,16 @@ export default function SearchScreen() {
                 placeholderTextColor={Colors.textLight}
                 value={customBrand}
                 onChangeText={setCustomBrand}
+              />
+
+              <Text style={styles.inputLabel}>Barcode (Optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g. 4032539018105"
+                placeholderTextColor={Colors.textLight}
+                value={customBarcode}
+                onChangeText={setCustomBarcode}
+                keyboardType="numeric"
               />
 
               <Text style={[styles.inputLabel, { marginTop: 12, fontWeight: '700' }]}>
