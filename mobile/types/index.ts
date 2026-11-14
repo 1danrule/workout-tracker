@@ -98,3 +98,27 @@ export interface OFFSearchResult {
   carbs_per_100g: number;
   image_url: string;
 }
+
+export interface WeightLog {
+  id: number;
+  weight_kg: number;
+  date: string;
+  created_at: string;
+}
+
+export interface CalorieDay {
+  date: string;
+  calories: number;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+  target_calories: number | null;
+}
+
+export interface CalorieHistoryResponse {
+  days: number;
+  start_date: string;
+  end_date: string;
+  target_calories: number | null;
+  history: CalorieDay[];
+}

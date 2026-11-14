@@ -303,3 +303,26 @@ export async function deleteWorkoutSet(workoutId: number, setId: number) {
   });
   if (!res.ok) throw new Error('Failed to delete set');
 }
+
+// ---- Weight & Progress Analytics ----
+export async function getWeightHistory(days = 30) {
+  const res = await authFetch(`${API}/auth/weight-history/?days=${days}`);
+  if (!res.ok) throw new Error('Failed to load weight history');
+  return parseJson(res);
+}
+
+export async function logWeight(weight_kg: number, date: string) {
+  const res = await authFetch(`${API}/auth/weight-history/`, {
+    method: 'POST',
+    body: JSON.stringify({ weight_kg, date }),
+  });
+  if (!res.ok) throw new Error('Failed to log weight');
+  return parseJson(res);
+}
+
+// ---- Calorie Analytics ----
+export async function getCalorieHistory(days = 7) {
+  const res = await authFetch(`${API}/nutrition/calorie-history/?days=${days}`);
+  if (!res.ok) throw new Error('Failed to load calorie history');
+  return parseJson(res);
+}

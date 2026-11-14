@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 import requests as http_requests  # rename to avoid conflict
 
@@ -235,4 +236,68 @@ class OpenFoodFactsBarcodeView(APIView):
             'fat_per_100g': nutriments.get('fat_100g', 0),
             'carbs_per_100g': nutriments.get('carbohydrates_100g', 0),
             'image_url': product.get('image_url', ''),
+        })
+
+
+class CalorieHistoryView(APIView):
+    """
+    GET /api/nutrition/calorie-history/?days=7
+    Returns daily intake for the last N days with targets.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            days = int(request.query_params.get('days', 7))
+        except ValueError:
+            days = 7
+
+        days = max(1, min(days, 90))
+        today = timezone.localdate()
+        start_date = today - timedelta(days=days - 1)
+
+        entries = FoodEntry.objects.filter(
+            user=request.user,
+            date__gte=start_date,
+            date__lte=today,
+        ).select_related('food')
+
+        daily_map = {}
+        for i in range(days):
+            d = (start_date + timedelta(days=i)).isoformat()
+            daily_map[d] = {
+                'date': d,
+                'calories': 0.0,
+                'protein_g': 0.0,
+                'fat_g': 0.0,
+                'carbs_g': 0.0,
+            }
+
+        for entry in entries:
+            d_str = entry.date.isoformat()
+            if d_str in daily_map:
+                daily_map[d_str]['calories'] += float(entry.calories)
+                daily_map[d_str]['protein_g'] += float(entry.protein)
+                daily_map[d_str]['fat_g'] += float(entry.fat)
+                daily_map[d_str]['carbs_g'] += float(entry.carbs)
+
+        targets = calculate_targets(request.user.profile)
+        target_calories = targets['calories'] if targets else None
+
+        results = []
+        for d in sorted(daily_map.keys()):
+            item = daily_map[d]
+            item['calories'] = round(item['calories'], 1)
+            item['protein_g'] = round(item['protein_g'], 1)
+            item['fat_g'] = round(item['fat_g'], 1)
+            item['carbs_g'] = round(item['carbs_g'], 1)
+            item['target_calories'] = target_calories
+            results.append(item)
+
+        return Response({
+            'days': days,
+            'start_date': start_date.isoformat(),
+            'end_date': today.isoformat(),
+            'target_calories': target_calories,
+            'history': results,
         })
