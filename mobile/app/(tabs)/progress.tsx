@@ -15,6 +15,7 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { getCalorieHistory, getWeightHistory, logWeight } from '../../services/api';
 import type { CalorieDay, CalorieHistoryResponse, WeightLog } from '../../types';
 
@@ -22,6 +23,7 @@ type SectionTab = 'calories' | 'weight';
 type PeriodOption = 7 | 30;
 
 export default function ProgressScreen() {
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<SectionTab>('calories');
   const [period, setPeriod] = useState<PeriodOption>(7);
 
@@ -127,9 +129,9 @@ export default function ProgressScreen() {
   const weightRange = Math.max(maxWeight - minWeight, 2);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Header Tabs */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.tabToggle}>
           <TouchableOpacity
             style={[styles.toggleBtn, activeTab === 'calories' && styles.toggleBtnActive]}
@@ -208,21 +210,21 @@ export default function ProgressScreen() {
             <View>
               {/* Summary Highlights */}
               <View style={styles.statsGrid}>
-                <View style={styles.statCard}>
+                <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Text style={styles.statLabel}>Avg Intake</Text>
                   <Text style={[styles.statValue, { color: Colors.calories }]}>
                     {avgCaloriesPeriod} <Text style={styles.statUnit}>kcal</Text>
                   </Text>
                 </View>
 
-                <View style={styles.statCard}>
+                <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Text style={styles.statLabel}>Daily Target</Text>
                   <Text style={[styles.statValue, { color: Colors.primary }]}>
                     {targetCalories} <Text style={styles.statUnit}>kcal</Text>
                   </Text>
                 </View>
 
-                <View style={styles.statCard}>
+                <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Text style={styles.statLabel}>Avg Protein</Text>
                   <Text style={[styles.statValue, { color: Colors.protein }]}>
                     {avgProteinPeriod} <Text style={styles.statUnit}>g</Text>
@@ -231,9 +233,9 @@ export default function ProgressScreen() {
               </View>
 
               {/* Bar Chart Card */}
-              <View style={styles.chartCard}>
+              <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>Daily Calories</Text>
+                  <Text style={[styles.chartTitle, { color: colors.text }]}>Daily Calories</Text>
                   <View style={styles.legendRow}>
                     <View style={[styles.legendDot, { backgroundColor: Colors.calories }]} />
                     <Text style={styles.legendText}>Intake</Text>
@@ -269,7 +271,7 @@ export default function ProgressScreen() {
                         style={styles.barColumn}
                         onPress={() => setSelectedDay(item)}
                       >
-                        <View style={styles.barTrack}>
+                        <View style={[styles.barTrack, { backgroundColor: colors.surfaceVariant }]}>
                           <View
                             style={[
                               styles.barFill,
@@ -294,9 +296,9 @@ export default function ProgressScreen() {
 
                 {/* Day Details Card */}
                 {selectedDay && (
-                  <View style={styles.selectedDayBox}>
+                  <View style={[styles.selectedDayBox, { backgroundColor: colors.surfaceVariant }]}>
                     <View style={styles.selectedDayHeader}>
-                      <Text style={styles.selectedDayTitle}>
+                      <Text style={[styles.selectedDayTitle, { color: colors.text }]}>
                         {new Date(selectedDay.date + 'T00:00:00').toLocaleDateString(undefined, {
                           weekday: 'short',
                           month: 'short',
@@ -333,10 +335,10 @@ export default function ProgressScreen() {
             /* ================= WEIGHT TAB ================= */
             <View>
               {/* Weight Highlights Card */}
-              <View style={styles.weightSummaryCard}>
+              <View style={[styles.weightSummaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.weightSummaryLeft}>
                   <Text style={styles.weightSummaryLabel}>Latest Weight</Text>
-                  <Text style={styles.weightSummaryValue}>
+                  <Text style={[styles.weightSummaryValue, { color: colors.text }]}>
                     {latestWeight !== null ? `${latestWeight} kg` : 'No logs yet'}
                   </Text>
                 </View>
@@ -374,8 +376,8 @@ export default function ProgressScreen() {
               </View>
 
               {/* Weight Points / Chart View */}
-              <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>Weight Trend</Text>
+              <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.chartTitle, { color: colors.text }]}>Weight Trend</Text>
 
                 {sortedWeights.length === 0 ? (
                   <View style={styles.emptyWeightBox}>
@@ -423,16 +425,16 @@ export default function ProgressScreen() {
 
               {/* Recent History Table */}
               {sortedWeights.length > 0 && (
-                <View style={styles.historyListCard}>
-                  <Text style={styles.historyTitle}>Log Entries</Text>
+                <View style={[styles.historyListCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Text style={[styles.historyTitle, { color: colors.text }]}>Log Entries</Text>
                   {sortedWeights
                     .slice()
                     .reverse()
                     .map((item) => (
-                      <View key={item.id || item.date} style={styles.historyRow}>
+                      <View key={item.id || item.date} style={[styles.historyRow, { borderBottomColor: colors.border }]}>
                         <View style={styles.historyDateCol}>
                           <Ionicons name="calendar-outline" size={16} color={Colors.textSecondary} />
-                          <Text style={styles.historyDateText}>{item.date}</Text>
+                          <Text style={[styles.historyDateText, { color: colors.text }]}>{item.date}</Text>
                         </View>
                         <Text style={styles.historyWeightText}>{item.weight_kg} kg</Text>
                       </View>
@@ -452,9 +454,9 @@ export default function ProgressScreen() {
         onRequestClose={() => setShowWeightModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Log Weight</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Log Weight</Text>
               <TouchableOpacity onPress={() => setShowWeightModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.textSecondary} />
               </TouchableOpacity>
@@ -463,7 +465,7 @@ export default function ProgressScreen() {
             <View style={styles.modalBody}>
               <Text style={styles.modalLabel}>Weight (kg) *</Text>
               <TextInput
-                style={styles.modalInput}
+                style={[styles.modalInput, { backgroundColor: colors.surfaceVariant, borderColor: colors.border, color: colors.text }]}
                 value={newWeightInput}
                 onChangeText={setNewWeightInput}
                 keyboardType="numeric"
@@ -474,7 +476,7 @@ export default function ProgressScreen() {
 
               <Text style={styles.modalLabel}>Date (YYYY-MM-DD) *</Text>
               <TextInput
-                style={styles.modalInput}
+                style={[styles.modalInput, { backgroundColor: colors.surfaceVariant, borderColor: colors.border, color: colors.text }]}
                 value={newWeightDate}
                 onChangeText={setNewWeightDate}
                 placeholder="YYYY-MM-DD"

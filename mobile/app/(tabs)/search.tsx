@@ -17,6 +17,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { searchFoods, searchOFF, searchOFFBarcode, createFood, addFoodEntry } from '../../services/api';
 import type { Food, OFFSearchResult } from '../../types';
 
@@ -31,6 +32,7 @@ const MEAL_OPTIONS: { key: MealType; label: string }[] = [
 ];
 
 export default function SearchScreen() {
+  const { colors } = useTheme();
   const params = useLocalSearchParams<{ meal?: string; date?: string }>();
 
   const [activeTab, setActiveTab] = useState<TabType>('my_foods');
@@ -302,13 +304,13 @@ export default function SearchScreen() {
   const calcFat = selectedFood ? (selectedFood.fat_per_100g * factor).toFixed(1) : '0';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Search Header */}
-      <View style={styles.header}>
-        <View style={styles.searchBar}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.surfaceVariant }]}>
           <Ionicons name="search" size={20} color={Colors.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder={activeTab === 'my_foods' ? 'Search your foods...' : 'Search Open Food Facts...'}
             placeholderTextColor={Colors.textLight}
             value={searchQuery}
@@ -351,7 +353,7 @@ export default function SearchScreen() {
       </View>
 
       {/* Action Bar: Scan Barcode & Create Custom Food */}
-      <View style={styles.actionBar}>
+      <View style={[styles.actionBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={styles.actionButton}
           onPress={handleOpenScanner}
@@ -381,11 +383,11 @@ export default function SearchScreen() {
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.foodItem}
+              style={[styles.foodItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
               onPress={() => handleSelectFood(item, false)}
             >
               <View style={styles.foodItemInfo}>
-                <Text style={styles.foodItemName}>{item.name}</Text>
+                <Text style={[styles.foodItemName, { color: colors.text }]}>{item.name}</Text>
                 <Text style={styles.foodItemBrand}>
                   {item.brand ? `${item.brand} • ` : ''}100g
                 </Text>
@@ -420,11 +422,11 @@ export default function SearchScreen() {
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.foodItem}
+              style={[styles.foodItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
               onPress={() => handleSelectFood(item, true)}
             >
               <View style={styles.foodItemInfo}>
-                <Text style={styles.foodItemName}>{item.name}</Text>
+                <Text style={[styles.foodItemName, { color: colors.text }]}>{item.name}</Text>
                 <Text style={styles.foodItemBrand}>
                   {item.brand ? `${item.brand} • ` : ''}Open Food Facts
                 </Text>
@@ -463,10 +465,10 @@ export default function SearchScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle} numberOfLines={1}>
+                <Text style={[styles.modalTitle, { color: colors.text }]} numberOfLines={1}>
                   {selectedFood?.name}
                 </Text>
                 {!!selectedFood?.brand && (
@@ -577,9 +579,9 @@ export default function SearchScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Custom Food</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Create Custom Food</Text>
               <TouchableOpacity
                 onPress={() => setShowCreateModal(false)}
                 style={styles.modalCloseButton}

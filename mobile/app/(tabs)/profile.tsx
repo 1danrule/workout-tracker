@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { updateProfile, getProfile } from '../../services/api';
 import type { Profile } from '../../types';
 
@@ -47,6 +48,7 @@ const ACTIVITY_OPTIONS: PickerOption[] = [
 
 export default function ProfileScreen() {
   const { profile: authProfile, refreshProfile, logout } = useAuth();
+  const { mode, setMode, colors, isDark } = useTheme();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -156,26 +158,26 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* User Card */}
-        <View style={styles.userCard}>
+        <View style={[styles.userCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.avatarCircle}>
             <Ionicons name="person" size={36} color={Colors.primaryDark} />
           </View>
           <View style={{ flex: 1, marginLeft: 16 }}>
-            <Text style={styles.usernameText}>{authProfile?.username || 'User'}</Text>
+            <Text style={[styles.usernameText, { color: colors.text }]}>{authProfile?.username || 'User'}</Text>
             <Text style={styles.emailText}>{authProfile?.email || 'user@example.com'}</Text>
           </View>
         </View>
 
         {/* Section: Physical Stats */}
         <Text style={styles.sectionHeader}>Body Metrics</Text>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.inputRow}>
-            <Text style={styles.inputLabel}>Weight (kg)</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Weight (kg)</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { color: colors.text }]}
               keyboardType="numeric"
               placeholder="e.g. 75.5"
               placeholderTextColor={Colors.textLight}
@@ -184,12 +186,12 @@ export default function ProfileScreen() {
             />
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           <View style={styles.inputRow}>
-            <Text style={styles.inputLabel}>Height (cm)</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Height (cm)</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { color: colors.text }]}
               keyboardType="numeric"
               placeholder="e.g. 178"
               placeholderTextColor={Colors.textLight}
@@ -198,12 +200,12 @@ export default function ProfileScreen() {
             />
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           <View style={styles.inputRow}>
-            <Text style={styles.inputLabel}>Age</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Age</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { color: colors.text }]}
               keyboardType="numeric"
               placeholder="e.g. 25"
               placeholderTextColor={Colors.textLight}
@@ -215,7 +217,7 @@ export default function ProfileScreen() {
 
         {/* Section: Goal & Lifestyle */}
         <Text style={styles.sectionHeader}>Goals & Lifestyle</Text>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Sex Picker */}
           <TouchableOpacity
             style={styles.pickerRow}
@@ -223,7 +225,7 @@ export default function ProfileScreen() {
               openPicker('Select Sex', SEX_OPTIONS, sex, (val) => setSex(val as Profile['sex']))
             }
           >
-            <Text style={styles.inputLabel}>Biological Sex</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Biological Sex</Text>
             <View style={styles.pickerValueRow}>
               <Text style={sex ? styles.pickerValueText : styles.pickerPlaceholderText}>
                 {getLabel(SEX_OPTIONS, sex)}
@@ -232,7 +234,7 @@ export default function ProfileScreen() {
             </View>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Goal Picker */}
           <TouchableOpacity
@@ -241,7 +243,7 @@ export default function ProfileScreen() {
               openPicker('Fitness Goal', GOAL_OPTIONS, goal, (val) => setGoal(val as Profile['goal']))
             }
           >
-            <Text style={styles.inputLabel}>Fitness Goal</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Fitness Goal</Text>
             <View style={styles.pickerValueRow}>
               <Text style={goal ? styles.pickerValueText : styles.pickerPlaceholderText}>
                 {getLabel(GOAL_OPTIONS, goal)}
@@ -250,7 +252,7 @@ export default function ProfileScreen() {
             </View>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Activity Level Picker */}
           <TouchableOpacity
@@ -264,7 +266,7 @@ export default function ProfileScreen() {
               )
             }
           >
-            <Text style={styles.inputLabel}>Activity Level</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Activity Level</Text>
             <View style={styles.pickerValueRow}>
               <Text
                 style={[
@@ -278,6 +280,78 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
             </View>
           </TouchableOpacity>
+        </View>
+
+        {/* Section: Appearance (Theme) */}
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Appearance</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.themeSelectorRow}>
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                mode === "system" && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+              ]}
+              onPress={() => setMode("system")}
+            >
+              <Ionicons
+                name="phone-portrait-outline"
+                size={20}
+                color={mode === "system" ? colors.primaryDark : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  { color: mode === "system" ? colors.primaryDark : colors.textSecondary },
+                ]}
+              >
+                Auto (System)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                mode === "light" && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+              ]}
+              onPress={() => setMode("light")}
+            >
+              <Ionicons
+                name="sunny-outline"
+                size={20}
+                color={mode === "light" ? colors.primaryDark : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  { color: mode === "light" ? colors.primaryDark : colors.textSecondary },
+                ]}
+              >
+                Light
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                mode === "dark" && { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+              ]}
+              onPress={() => setMode("dark")}
+            >
+              <Ionicons
+                name="moon-outline"
+                size={20}
+                color={mode === "dark" ? colors.primaryDark : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  { color: mode === "dark" ? colors.primaryDark : colors.textSecondary },
+                ]}
+              >
+                Dark
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Save Button */}
@@ -308,9 +382,9 @@ export default function ProfileScreen() {
         onRequestClose={() => setPickerVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{pickerTitle}</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{pickerTitle}</Text>
               <TouchableOpacity
                 onPress={() => setPickerVisible(false)}
                 style={styles.modalCloseButton}
@@ -355,6 +429,26 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  themeSelectorRow: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 6,
+  },
+  themeOptionBtn: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    gap: 6,
+  },
+  themeOptionText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,

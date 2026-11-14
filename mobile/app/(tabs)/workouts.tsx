@@ -17,6 +17,7 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   getWorkouts,
   createWorkout,
@@ -29,6 +30,7 @@ import {
 import type { Workout, WorkoutSet, Exercise } from '../../types';
 
 export default function WorkoutsScreen() {
+  const { colors } = useTheme();
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
@@ -243,7 +245,7 @@ export default function WorkoutsScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Action Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity
@@ -290,7 +292,7 @@ export default function WorkoutsScreen() {
                   onPress={() => setExpandedWorkoutId(isExpanded ? null : item.id)}
                 >
                   <View style={styles.workoutHeaderLeft}>
-                    <Text style={styles.workoutName}>{item.name}</Text>
+                    <Text style={[styles.workoutName, { color: colors.text }]}>{item.name}</Text>
                     <Text style={styles.workoutDate}>
                       {item.date} • {setCount} {setCount === 1 ? 'set' : 'sets'}
                     </Text>
@@ -362,9 +364,9 @@ export default function WorkoutsScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Workout Session</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>New Workout Session</Text>
               <TouchableOpacity
                 onPress={() => setShowStartModal(false)}
                 style={styles.modalCloseButton}
@@ -526,9 +528,9 @@ export default function WorkoutsScreen() {
         animationType="slide"
         onRequestClose={() => setShowExercisePicker(false)}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Exercise Library</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Exercise Library</Text>
             <TouchableOpacity
               onPress={() => setShowExercisePicker(false)}
               style={styles.modalCloseButton}
@@ -593,10 +595,10 @@ export default function WorkoutsScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>{selectedExerciseForSet?.name}</Text>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>{selectedExerciseForSet?.name}</Text>
                 <Text style={styles.modalSubtitle}>
                   {selectedExerciseForSet?.muscle_group.toUpperCase()}
                 </Text>
