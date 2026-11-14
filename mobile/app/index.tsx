@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/colors';
 
 export default function Index() {
-  const { isLoading, isLoggedIn } = useAuth();
+  const { isLoading, isLoggedIn, profile } = useAuth();
 
   if (isLoading) {
     return (
@@ -15,6 +15,10 @@ export default function Index() {
   }
 
   if (isLoggedIn) {
+    const isProfileIncomplete = !profile?.weight_kg || !profile?.height_cm || !profile?.sex;
+    if (isProfileIncomplete) {
+      return <Redirect href="/(auth)/onboarding" />;
+    }
     return <Redirect href="/(tabs)" />;
   }
 
