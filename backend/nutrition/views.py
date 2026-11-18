@@ -1,5 +1,7 @@
+from datetime import timedelta
 from decimal import Decimal
-import requests as http_requests  # rename to avoid conflict
+import re
+import requests as http_requests
 
 from django.db.models import Q, ProtectedError
 from django.utils import timezone
@@ -157,6 +159,135 @@ class DailySummaryView(APIView):
         })
 
 
+def _safe_float(val):
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def _get_serving_quantity(product_data):
+    sq = product_data.get('serving_quantity')
+    if sq is not None:
+        try:
+            val = float(sq)
+            if val > 0:
+                return val
+        except (ValueError, TypeError):
+            pass
+    ss = product_data.get('serving_size', '')
+    if isinstance(ss, str) and ss:
+        match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:g|г|ml|мл)\b', ss, re.IGNORECASE)
+        if match:
+            try:
+                return float(match.group(1).replace(',', '.'))
+            except ValueError:
+                pass
+    return None
+
+
+def _parse_off_product(product_data, barcode=''):
+    nutriments = product_data.get('nutriments', {})
+    serving_qty = _get_serving_quantity(product_data)
+
+    def get_macro(keys_100g, keys_serving):
+        for k in keys_100g:
+            val = _safe_float(nutriments.get(k))
+            if val is not None and val >= 0:
+                return round(val, 1)
+        for k in keys_serving:
+            val = _safe_float(nutriments.get(k))
+            if val is not None and val >= 0:
+                if serving_qty and serving_qty > 0:
+                    return round((val / serving_qty) * 100.0, 1)
+                return round(val, 1)
+        return 0.0
+
+    # Calories (kcal)
+    kcal_keys_100g = [
+        'energy-kcal_100g', 'energy-kcal_value', 'energy-kcal',
+        'energy_kcal_100g', 'energy_kcal_value', 'energy_kcal'
+    ]
+    calories = None
+    for k in kcal_keys_100g:
+        val = _safe_float(nutriments.get(k))
+        if val is not None and val > 0:
+            calories = round(val, 1)
+            break
+
+    if calories is None:
+        for k in ['energy_100g', 'energy_value', 'energy']:
+            val = _safe_float(nutriments.get(k))
+            if val is not None and val > 0:
+                calories = round(val / 4.184, 1)
+                break
+
+    if calories is None:
+        for k in ['energy-kcal_serving', 'energy_kcal_serving']:
+            val = _safe_float(nutriments.get(k))
+            if val is not None and val > 0:
+                if serving_qty and serving_qty > 0:
+                    calories = round((val / serving_qty) * 100.0, 1)
+                else:
+                    calories = round(val, 1)
+                break
+
+    if calories is None:
+        val = _safe_float(nutriments.get('energy_serving'))
+        if val is not None and val > 0:
+            kj_cal = val / 4.184
+            if serving_qty and serving_qty > 0:
+                calories = round((kj_cal / serving_qty) * 100.0, 1)
+            else:
+                calories = round(kj_cal, 1)
+
+    calories = calories or 0.0
+
+    protein = get_macro(
+        ['proteins_100g', 'proteins_value', 'proteins', 'protein_100g', 'protein'],
+        ['proteins_serving', 'protein_serving']
+    )
+    fat = get_macro(
+        ['fat_100g', 'fat_value', 'fat'],
+        ['fat_serving']
+    )
+    carbs = get_macro(
+        ['carbohydrates_100g', 'carbohydrates_value', 'carbohydrates', 'carbs_100g', 'carbs'],
+        ['carbohydrates_serving', 'carbs_serving']
+    )
+
+    name_candidates = [
+        product_data.get('product_name'),
+        product_data.get('product_name_ru'),
+        product_data.get('product_name_en'),
+        product_data.get('product_name_de'),
+        product_data.get('generic_name'),
+        product_data.get('generic_name_ru'),
+        product_data.get('generic_name_en'),
+        product_data.get('abbreviated_product_name'),
+    ]
+    name = next((n.strip() for n in name_candidates if isinstance(n, str) and n.strip()), 'Unknown Product')
+
+    brand = product_data.get('brands', '') or product_data.get('brand', '') or ''
+    if isinstance(brand, str) and brand:
+        brand = brand.split(',')[0].strip()
+
+    code = barcode or product_data.get('code', '') or ''
+
+    return {
+        'name': name,
+        'brand': brand,
+        'barcode': str(code).strip(),
+        'calories_per_100g': float(calories),
+        'protein_per_100g': float(protein),
+        'fat_per_100g': float(fat),
+        'carbs_per_100g': float(carbs),
+        'image_url': product_data.get('image_url') or product_data.get('image_front_url', ''),
+    }
+
+
 class OpenFoodFactsSearchView(APIView):
     """GET /api/nutrition/off-search/?query=chicken&page=1"""
     permission_classes = [permissions.IsAuthenticated]
@@ -176,8 +307,11 @@ class OpenFoodFactsSearchView(APIView):
             'page': page,
             'page_size': 20,
         }
+        headers = {
+            'User-Agent': 'FitTracker - iOS - Version 1.0 (contact@fittracker.app)',
+        }
         try:
-            resp = http_requests.get(url, params=params, timeout=10)
+            resp = http_requests.get(url, params=params, headers=headers, timeout=10)
             resp.raise_for_status()
             data = resp.json()
         except Exception:
@@ -185,17 +319,7 @@ class OpenFoodFactsSearchView(APIView):
 
         results = []
         for product in data.get('products', []):
-            nutriments = product.get('nutriments', {})
-            results.append({
-                'name': product.get('product_name', 'Unknown'),
-                'brand': product.get('brands', ''),
-                'barcode': product.get('code', ''),
-                'calories_per_100g': nutriments.get('energy-kcal_100g', 0),
-                'protein_per_100g': nutriments.get('proteins_100g', 0),
-                'fat_per_100g': nutriments.get('fat_100g', 0),
-                'carbs_per_100g': nutriments.get('carbohydrates_100g', 0),
-                'image_url': product.get('image_url', ''),
-            })
+            results.append(_parse_off_product(product))
 
         return Response({
             'results': results,
@@ -209,30 +333,114 @@ class OpenFoodFactsBarcodeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        barcode = request.query_params.get('barcode', '')
+        barcode = request.query_params.get('barcode', '').strip()
         if not barcode:
             return Response({'error': 'barcode is required'}, status=400)
 
-        url = f'https://world.openfoodfacts.org/api/v2/product/{barcode}.json'
+        # 1. Check local database first (cached or custom food)
+        local_food = visible_foods(request.user).filter(barcode=barcode).first()
+        if local_food:
+            return Response({
+                'id': local_food.id,
+                'name': local_food.name,
+                'brand': local_food.brand,
+                'barcode': local_food.barcode,
+                'calories_per_100g': float(local_food.calories_per_100g),
+                'protein_per_100g': float(local_food.protein_per_100g),
+                'fat_per_100g': float(local_food.fat_per_100g),
+                'carbs_per_100g': float(local_food.carbs_per_100g),
+                'image_url': '',
+            })
+
+        # 2. Query Open Food Facts with proper User-Agent
+        headers = {
+            'User-Agent': 'FitTracker - iOS - Version 1.0 (contact@fittracker.app)',
+        }
+
+        # Try v2 first, then fallback to v0
+        urls = [
+            f'https://world.openfoodfacts.org/api/v2/product/{barcode}.json',
+            f'https://world.openfoodfacts.org/api/v0/product/{barcode}.json',
+        ]
+
+        product_data = None
+        for url in urls:
+            try:
+                resp = http_requests.get(url, headers=headers, timeout=8)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get('status') == 1 and data.get('product'):
+                        product_data = data.get('product')
+                        break
+            except Exception:
+                continue
+
+        if not product_data:
+            return Response({'error': f'Product with barcode {barcode} not found in database.'}, status=404)
+
+        parsed = _parse_off_product(product_data, barcode=barcode)
+        return Response(parsed)
+
+
+class CalorieHistoryView(APIView):
+    """
+    GET /api/nutrition/calorie-history/?days=7
+    Returns daily intake for the last N days with targets.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
         try:
-            resp = http_requests.get(url, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception:
-            return Response({'error': 'Could not reach Open Food Facts.'}, status=502)
+            days = int(request.query_params.get('days', 7))
+        except ValueError:
+            days = 7
 
-        if data.get('status') != 1:
-            return Response({'error': 'Product not found.'}, status=404)
+        days = max(1, min(days, 90))
+        today = timezone.localdate()
+        start_date = today - timedelta(days=days - 1)
 
-        product = data.get('product', {})
-        nutriments = product.get('nutriments', {})
+        entries = FoodEntry.objects.filter(
+            user=request.user,
+            date__gte=start_date,
+            date__lte=today,
+        ).select_related('food')
+
+        daily_map = {}
+        for i in range(days):
+            d = (start_date + timedelta(days=i)).isoformat()
+            daily_map[d] = {
+                'date': d,
+                'calories': 0.0,
+                'protein_g': 0.0,
+                'fat_g': 0.0,
+                'carbs_g': 0.0,
+            }
+
+        for entry in entries:
+            d_str = entry.date.isoformat()
+            if d_str in daily_map:
+                daily_map[d_str]['calories'] += float(entry.calories)
+                daily_map[d_str]['protein_g'] += float(entry.protein)
+                daily_map[d_str]['fat_g'] += float(entry.fat)
+                daily_map[d_str]['carbs_g'] += float(entry.carbs)
+
+        targets = calculate_targets(request.user.profile)
+        target_calories = targets['calories'] if targets else None
+
+        results = []
+        for d in sorted(daily_map.keys()):
+            item = daily_map[d]
+            item['calories'] = round(item['calories'], 1)
+            item['protein_g'] = round(item['protein_g'], 1)
+            item['fat_g'] = round(item['fat_g'], 1)
+            item['carbs_g'] = round(item['carbs_g'], 1)
+            item['target_calories'] = target_calories
+            results.append(item)
+
         return Response({
-            'name': product.get('product_name', 'Unknown'),
-            'brand': product.get('brands', ''),
-            'barcode': barcode,
-            'calories_per_100g': nutriments.get('energy-kcal_100g', 0),
-            'protein_per_100g': nutriments.get('proteins_100g', 0),
-            'fat_per_100g': nutriments.get('fat_100g', 0),
-            'carbs_per_100g': nutriments.get('carbohydrates_100g', 0),
-            'image_url': product.get('image_url', ''),
+            'days': days,
+            'start_date': start_date.isoformat(),
+            'end_date': today.isoformat(),
+            'target_calories': target_calories,
+            'history': results,
         })
