@@ -32,7 +32,7 @@ const MEAL_OPTIONS: { key: MealType; label: string }[] = [
 ];
 
 export default function SearchScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ meal?: string; date?: string }>();
 
@@ -212,9 +212,16 @@ export default function SearchScreen() {
 
       // If food is from OpenFoodFacts or has no ID in database, persist it first
       if (!foodId) {
+        const hasNutrients =
+          selectedFood.calories_per_100g > 0 ||
+          selectedFood.protein_per_100g > 0 ||
+          selectedFood.fat_per_100g > 0 ||
+          selectedFood.carbs_per_100g > 0;
+
         const created = await createFood({
           name: selectedFood.name,
           brand: selectedFood.brand,
+          barcode: hasNutrients && selectedFood.barcode ? selectedFood.barcode : undefined,
           calories_per_100g: selectedFood.calories_per_100g,
           protein_per_100g: selectedFood.protein_per_100g,
           fat_per_100g: selectedFood.fat_per_100g,
@@ -337,6 +344,7 @@ export default function SearchScreen() {
             style={[styles.searchInput, { color: colors.text }]}
             placeholder={activeTab === 'my_foods' ? 'Search your foods...' : 'Search Open Food Facts...'}
             placeholderTextColor={colors.textLight}
+            keyboardAppearance={isDark ? 'dark' : 'light'}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearchSubmit}
@@ -528,6 +536,8 @@ export default function SearchScreen() {
                   onChangeText={setGramsInput}
                   keyboardType="numeric"
                   placeholder="100"
+                  placeholderTextColor={colors.textLight}
+                  keyboardAppearance={isDark ? 'dark' : 'light'}
                   selectTextOnFocus
                 />
                 <Text style={styles.gramsSuffix}>grams</Text>
@@ -592,15 +602,6 @@ export default function SearchScreen() {
                 ))}
               </View>
 
-              {/* Date Selector / Input */}
-              <Text style={styles.inputLabel}>Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={entryDate}
-                onChangeText={setEntryDate}
-                placeholder="YYYY-MM-DD"
-              />
-
               {/* Submit Button */}
               <TouchableOpacity
                 style={[styles.primaryButton, addingToDiary && styles.buttonDisabled]}
@@ -646,6 +647,7 @@ export default function SearchScreen() {
                 style={styles.textInput}
                 placeholder="e.g. Oatmeal with Whey"
                 placeholderTextColor={colors.textLight}
+                keyboardAppearance={isDark ? 'dark' : 'light'}
                 value={customName}
                 onChangeText={setCustomName}
               />
@@ -655,6 +657,7 @@ export default function SearchScreen() {
                 style={styles.textInput}
                 placeholder="e.g. Quaker / Homemade"
                 placeholderTextColor={colors.textLight}
+                keyboardAppearance={isDark ? 'dark' : 'light'}
                 value={customBrand}
                 onChangeText={setCustomBrand}
               />
@@ -664,6 +667,7 @@ export default function SearchScreen() {
                 style={styles.textInput}
                 placeholder="e.g. 4032539018105"
                 placeholderTextColor={colors.textLight}
+                keyboardAppearance={isDark ? 'dark' : 'light'}
                 value={customBarcode}
                 onChangeText={setCustomBarcode}
                 keyboardType="numeric"
@@ -680,6 +684,7 @@ export default function SearchScreen() {
                     style={styles.macroTextInput}
                     placeholder="0"
                     placeholderTextColor={colors.textLight}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     keyboardType="numeric"
                     value={customCalories}
                     onChangeText={setCustomCalories}
@@ -691,6 +696,7 @@ export default function SearchScreen() {
                     style={styles.macroTextInput}
                     placeholder="0"
                     placeholderTextColor={colors.textLight}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     keyboardType="numeric"
                     value={customProtein}
                     onChangeText={setCustomProtein}
@@ -705,6 +711,7 @@ export default function SearchScreen() {
                     style={styles.macroTextInput}
                     placeholder="0"
                     placeholderTextColor={colors.textLight}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     keyboardType="numeric"
                     value={customCarbs}
                     onChangeText={setCustomCarbs}
@@ -716,6 +723,7 @@ export default function SearchScreen() {
                     style={styles.macroTextInput}
                     placeholder="0"
                     placeholderTextColor={colors.textLight}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     keyboardType="numeric"
                     value={customFat}
                     onChangeText={setCustomFat}

@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+import re
 import requests as http_requests
 
 from django.db.models import Q, ProtectedError
@@ -158,6 +159,135 @@ class DailySummaryView(APIView):
         })
 
 
+def _safe_float(val):
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def _get_serving_quantity(product_data):
+    sq = product_data.get('serving_quantity')
+    if sq is not None:
+        try:
+            val = float(sq)
+            if val > 0:
+                return val
+        except (ValueError, TypeError):
+            pass
+    ss = product_data.get('serving_size', '')
+    if isinstance(ss, str) and ss:
+        match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:g|г|ml|мл)\b', ss, re.IGNORECASE)
+        if match:
+            try:
+                return float(match.group(1).replace(',', '.'))
+            except ValueError:
+                pass
+    return None
+
+
+def _parse_off_product(product_data, barcode=''):
+    nutriments = product_data.get('nutriments', {})
+    serving_qty = _get_serving_quantity(product_data)
+
+    def get_macro(keys_100g, keys_serving):
+        for k in keys_100g:
+            val = _safe_float(nutriments.get(k))
+            if val is not None and val >= 0:
+                return round(val, 1)
+        for k in keys_serving:
+            val = _safe_float(nutriments.get(k))
+            if val is not None and val >= 0:
+                if serving_qty and serving_qty > 0:
+                    return round((val / serving_qty) * 100.0, 1)
+                return round(val, 1)
+        return 0.0
+
+    # Calories (kcal)
+    kcal_keys_100g = [
+        'energy-kcal_100g', 'energy-kcal_value', 'energy-kcal',
+        'energy_kcal_100g', 'energy_kcal_value', 'energy_kcal'
+    ]
+    calories = None
+    for k in kcal_keys_100g:
+        val = _safe_float(nutriments.get(k))
+        if val is not None and val > 0:
+            calories = round(val, 1)
+            break
+
+    if calories is None:
+        for k in ['energy_100g', 'energy_value', 'energy']:
+            val = _safe_float(nutriments.get(k))
+            if val is not None and val > 0:
+                calories = round(val / 4.184, 1)
+                break
+
+    if calories is None:
+        for k in ['energy-kcal_serving', 'energy_kcal_serving']:
+            val = _safe_float(nutriments.get(k))
+            if val is not None and val > 0:
+                if serving_qty and serving_qty > 0:
+                    calories = round((val / serving_qty) * 100.0, 1)
+                else:
+                    calories = round(val, 1)
+                break
+
+    if calories is None:
+        val = _safe_float(nutriments.get('energy_serving'))
+        if val is not None and val > 0:
+            kj_cal = val / 4.184
+            if serving_qty and serving_qty > 0:
+                calories = round((kj_cal / serving_qty) * 100.0, 1)
+            else:
+                calories = round(kj_cal, 1)
+
+    calories = calories or 0.0
+
+    protein = get_macro(
+        ['proteins_100g', 'proteins_value', 'proteins', 'protein_100g', 'protein'],
+        ['proteins_serving', 'protein_serving']
+    )
+    fat = get_macro(
+        ['fat_100g', 'fat_value', 'fat'],
+        ['fat_serving']
+    )
+    carbs = get_macro(
+        ['carbohydrates_100g', 'carbohydrates_value', 'carbohydrates', 'carbs_100g', 'carbs'],
+        ['carbohydrates_serving', 'carbs_serving']
+    )
+
+    name_candidates = [
+        product_data.get('product_name'),
+        product_data.get('product_name_ru'),
+        product_data.get('product_name_en'),
+        product_data.get('product_name_de'),
+        product_data.get('generic_name'),
+        product_data.get('generic_name_ru'),
+        product_data.get('generic_name_en'),
+        product_data.get('abbreviated_product_name'),
+    ]
+    name = next((n.strip() for n in name_candidates if isinstance(n, str) and n.strip()), 'Unknown Product')
+
+    brand = product_data.get('brands', '') or product_data.get('brand', '') or ''
+    if isinstance(brand, str) and brand:
+        brand = brand.split(',')[0].strip()
+
+    code = barcode or product_data.get('code', '') or ''
+
+    return {
+        'name': name,
+        'brand': brand,
+        'barcode': str(code).strip(),
+        'calories_per_100g': float(calories),
+        'protein_per_100g': float(protein),
+        'fat_per_100g': float(fat),
+        'carbs_per_100g': float(carbs),
+        'image_url': product_data.get('image_url') or product_data.get('image_front_url', ''),
+    }
+
+
 class OpenFoodFactsSearchView(APIView):
     """GET /api/nutrition/off-search/?query=chicken&page=1"""
     permission_classes = [permissions.IsAuthenticated]
@@ -189,17 +319,7 @@ class OpenFoodFactsSearchView(APIView):
 
         results = []
         for product in data.get('products', []):
-            nutriments = product.get('nutriments', {})
-            results.append({
-                'name': product.get('product_name', 'Unknown'),
-                'brand': product.get('brands', ''),
-                'barcode': product.get('code', ''),
-                'calories_per_100g': nutriments.get('energy-kcal_100g', 0),
-                'protein_per_100g': nutriments.get('proteins_100g', 0),
-                'fat_per_100g': nutriments.get('fat_100g', 0),
-                'carbs_per_100g': nutriments.get('carbohydrates_100g', 0),
-                'image_url': product.get('image_url', ''),
-            })
+            results.append(_parse_off_product(product))
 
         return Response({
             'results': results,
@@ -258,22 +378,8 @@ class OpenFoodFactsBarcodeView(APIView):
         if not product_data:
             return Response({'error': f'Product with barcode {barcode} not found in database.'}, status=404)
 
-        nutriments = product_data.get('nutriments', {})
-        calories = nutriments.get('energy-kcal_100g') or nutriments.get('energy-kcal')
-        if calories is None:
-            kj = nutriments.get('energy_100g') or nutriments.get('energy')
-            calories = round(float(kj) / 4.184, 1) if kj else 0
-
-        return Response({
-            'name': product_data.get('product_name') or product_data.get('product_name_en') or 'Unknown Product',
-            'brand': product_data.get('brands', ''),
-            'barcode': barcode,
-            'calories_per_100g': float(calories or 0),
-            'protein_per_100g': float(nutriments.get('proteins_100g') or nutriments.get('proteins') or 0),
-            'fat_per_100g': float(nutriments.get('fat_100g') or nutriments.get('fat') or 0),
-            'carbs_per_100g': float(nutriments.get('carbohydrates_100g') or nutriments.get('carbohydrates') or 0),
-            'image_url': product_data.get('image_url', ''),
-        })
+        parsed = _parse_off_product(product_data, barcode=barcode)
+        return Response(parsed)
 
 
 class CalorieHistoryView(APIView):
