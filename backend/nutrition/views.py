@@ -208,7 +208,9 @@ def _parse_off_product(product_data, barcode=''):
     # Calories (kcal)
     kcal_keys_100g = [
         'energy-kcal_100g', 'energy-kcal_value', 'energy-kcal',
-        'energy_kcal_100g', 'energy_kcal_value', 'energy_kcal'
+        'energy_kcal_100g', 'energy_kcal_value', 'energy_kcal',
+        'energy-kcal_prepared_100g', 'energy-kcal_prepared_value', 'energy-kcal_prepared',
+        'energy_kcal_prepared_100g', 'energy_kcal_prepared_value', 'energy_kcal_prepared',
     ]
     calories = None
     for k in kcal_keys_100g:
@@ -218,14 +220,22 @@ def _parse_off_product(product_data, barcode=''):
             break
 
     if calories is None:
-        for k in ['energy_100g', 'energy_value', 'energy']:
+        for k in [
+            'energy_100g', 'energy_value', 'energy',
+            'energy-kj_100g', 'energy-kj_value', 'energy-kj',
+            'energy_prepared_100g', 'energy_prepared_value', 'energy_prepared',
+            'energy-kj_prepared_100g', 'energy-kj_prepared_value', 'energy-kj_prepared',
+        ]:
             val = _safe_float(nutriments.get(k))
             if val is not None and val > 0:
                 calories = round(val / 4.184, 1)
                 break
 
     if calories is None:
-        for k in ['energy-kcal_serving', 'energy_kcal_serving']:
+        for k in [
+            'energy-kcal_serving', 'energy_kcal_serving',
+            'energy-kcal_prepared_serving', 'energy_kcal_prepared_serving',
+        ]:
             val = _safe_float(nutriments.get(k))
             if val is not None and val > 0:
                 if serving_qty and serving_qty > 0:
@@ -235,27 +245,43 @@ def _parse_off_product(product_data, barcode=''):
                 break
 
     if calories is None:
-        val = _safe_float(nutriments.get('energy_serving'))
-        if val is not None and val > 0:
-            kj_cal = val / 4.184
-            if serving_qty and serving_qty > 0:
-                calories = round((kj_cal / serving_qty) * 100.0, 1)
-            else:
-                calories = round(kj_cal, 1)
+        for k in [
+            'energy_serving', 'energy-kj_serving',
+            'energy_prepared_serving', 'energy-kj_prepared_serving',
+        ]:
+            val = _safe_float(nutriments.get(k))
+            if val is not None and val > 0:
+                kj_cal = val / 4.184
+                if serving_qty and serving_qty > 0:
+                    calories = round((kj_cal / serving_qty) * 100.0, 1)
+                else:
+                    calories = round(kj_cal, 1)
+                break
 
     calories = calories or 0.0
 
     protein = get_macro(
-        ['proteins_100g', 'proteins_value', 'proteins', 'protein_100g', 'protein'],
-        ['proteins_serving', 'protein_serving']
+        [
+            'proteins_100g', 'proteins_value', 'proteins', 'protein_100g', 'protein',
+            'proteins_prepared_100g', 'proteins_prepared_value', 'proteins_prepared',
+            'protein_prepared_100g', 'protein_prepared',
+        ],
+        ['proteins_serving', 'protein_serving', 'proteins_prepared_serving', 'protein_prepared_serving']
     )
     fat = get_macro(
-        ['fat_100g', 'fat_value', 'fat'],
-        ['fat_serving']
+        [
+            'fat_100g', 'fat_value', 'fat',
+            'fat_prepared_100g', 'fat_prepared_value', 'fat_prepared',
+        ],
+        ['fat_serving', 'fat_prepared_serving']
     )
     carbs = get_macro(
-        ['carbohydrates_100g', 'carbohydrates_value', 'carbohydrates', 'carbs_100g', 'carbs'],
-        ['carbohydrates_serving', 'carbs_serving']
+        [
+            'carbohydrates_100g', 'carbohydrates_value', 'carbohydrates', 'carbs_100g', 'carbs',
+            'carbohydrates_prepared_100g', 'carbohydrates_prepared_value', 'carbohydrates_prepared',
+            'carbs_prepared_100g', 'carbs_prepared',
+        ],
+        ['carbohydrates_serving', 'carbs_serving', 'carbohydrates_prepared_serving', 'carbs_prepared_serving']
     )
 
     name_candidates = [

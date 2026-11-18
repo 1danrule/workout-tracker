@@ -147,6 +147,34 @@ export default function SearchScreen() {
     isScanningRef.current = true;
     setScanned(true);
 
+    // Guard: ignore promotional QR URLs (e.g. https://qr.kinder.com/...)
+    if (data.startsWith('http://') || data.startsWith('https://')) {
+      setShowScanner(false);
+      Alert.alert(
+        'Promo Link Detected',
+        'You scanned a promotional QR link, not a product barcode. Please point the camera at the striped barcode (EAN / UPC) on the package.',
+        [
+          {
+            text: 'Scan Barcode',
+            onPress: () => {
+              isScanningRef.current = false;
+              setScanned(false);
+              setShowScanner(true);
+            },
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => {
+              isScanningRef.current = false;
+              setScanned(false);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     // Immediately close camera view so it does not keep scanning or go black
     setShowScanner(false);
     setLoading(true);
