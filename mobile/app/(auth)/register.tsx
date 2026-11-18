@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
+import type { ThemeColors } from '../../constants/colors';
 
 export default function RegisterScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { register } = useAuth();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -48,20 +51,20 @@ export default function RegisterScreen() {
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>Start tracking your fitness journey</Text>
 
-        <TextInput style={styles.input} placeholder="Username" placeholderTextColor={Colors.textLight}
+        <TextInput style={styles.input} placeholder="Username" placeholderTextColor={colors.textLight}
           value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
-        <TextInput style={styles.input} placeholder="Email" placeholderTextColor={Colors.textLight}
+        <TextInput style={styles.input} placeholder="Email" placeholderTextColor={colors.textLight}
           value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-        <TextInput style={styles.input} placeholder="Password" placeholderTextColor={Colors.textLight}
+        <TextInput style={styles.input} placeholder="Password" placeholderTextColor={colors.textLight}
           value={password} onChangeText={setPassword} secureTextEntry />
-        <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor={Colors.textLight}
+        <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor={colors.textLight}
           value={confirm} onChangeText={setConfirm} secureTextEntry />
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleRegister} disabled={loading}
         >
-          {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.buttonText}>Sign Up</Text>}
+          {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Sign Up</Text>}
         </TouchableOpacity>
 
         <Link href="/(auth)/login" asChild>
@@ -76,7 +79,7 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 32, paddingVertical: 40 },
   title: { fontSize: 28, fontWeight: '700', textAlign: 'center', marginBottom: 8, color: Colors.text },

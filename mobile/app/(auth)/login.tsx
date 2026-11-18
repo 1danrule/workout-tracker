@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
+import type { ThemeColors } from '../../constants/colors';
 
 export default function LoginScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +44,8 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Username"
-          placeholderTextColor={Colors.textLight}
+          placeholderTextColor={colors.textLight}
+          keyboardAppearance={isDark ? 'dark' : 'light'}
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -50,7 +54,8 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor={Colors.textLight}
+          placeholderTextColor={colors.textLight}
+          keyboardAppearance={isDark ? 'dark' : 'light'}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -62,7 +67,7 @@ export default function LoginScreen() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={Colors.white} />
+            <ActivityIndicator color={colors.white} />
           ) : (
             <Text style={styles.buttonText}>Log In</Text>
           )}
@@ -80,7 +85,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { flex: 1, justifyContent: 'center', paddingHorizontal: 32 },
   logo: { fontSize: 36, fontWeight: '700', textAlign: 'center', marginBottom: 8, color: Colors.text },

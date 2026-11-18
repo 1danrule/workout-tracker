@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import type { ThemeColors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { updateProfile, getProfile } from '../../services/api';
@@ -49,6 +49,7 @@ const ACTIVITY_OPTIONS: PickerOption[] = [
 export default function ProfileScreen() {
   const { profile: authProfile, refreshProfile, logout } = useAuth();
   const { mode, setMode, colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -152,7 +153,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.centerLoading}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -163,7 +164,7 @@ export default function ProfileScreen() {
         {/* User Card */}
         <View style={[styles.userCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.avatarCircle}>
-            <Ionicons name="person" size={36} color={Colors.primaryDark} />
+            <Ionicons name="person" size={36} color={colors.primaryDark} />
           </View>
           <View style={{ flex: 1, marginLeft: 16 }}>
             <Text style={[styles.usernameText, { color: colors.text }]}>{authProfile?.username || 'User'}</Text>
@@ -180,7 +181,7 @@ export default function ProfileScreen() {
               style={[styles.textInput, { color: colors.text }]}
               keyboardType="numeric"
               placeholder="e.g. 75.5"
-              placeholderTextColor={Colors.textLight}
+              placeholderTextColor={colors.textLight}
               value={weightKg}
               onChangeText={setWeightKg}
             />
@@ -194,7 +195,7 @@ export default function ProfileScreen() {
               style={[styles.textInput, { color: colors.text }]}
               keyboardType="numeric"
               placeholder="e.g. 178"
-              placeholderTextColor={Colors.textLight}
+              placeholderTextColor={colors.textLight}
               value={heightCm}
               onChangeText={setHeightCm}
             />
@@ -208,7 +209,7 @@ export default function ProfileScreen() {
               style={[styles.textInput, { color: colors.text }]}
               keyboardType="numeric"
               placeholder="e.g. 25"
-              placeholderTextColor={Colors.textLight}
+              placeholderTextColor={colors.textLight}
               value={age}
               onChangeText={setAge}
             />
@@ -230,7 +231,7 @@ export default function ProfileScreen() {
               <Text style={sex ? styles.pickerValueText : styles.pickerPlaceholderText}>
                 {getLabel(SEX_OPTIONS, sex)}
               </Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -248,7 +249,7 @@ export default function ProfileScreen() {
               <Text style={goal ? styles.pickerValueText : styles.pickerPlaceholderText}>
                 {getLabel(GOAL_OPTIONS, goal)}
               </Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
 
@@ -277,7 +278,7 @@ export default function ProfileScreen() {
               >
                 {getLabel(ACTIVITY_OPTIONS, activityLevel)}
               </Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -361,7 +362,7 @@ export default function ProfileScreen() {
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator color={Colors.white} />
+            <ActivityIndicator color={colors.white} />
           ) : (
             <Text style={styles.saveButtonText}>Save Changes</Text>
           )}
@@ -369,7 +370,7 @@ export default function ProfileScreen() {
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color={Colors.error} />
+          <Ionicons name="log-out-outline" size={20} color={colors.error} />
           <Text style={styles.logoutButtonText}>Log Out</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -389,7 +390,7 @@ export default function ProfileScreen() {
                 onPress={() => setPickerVisible(false)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -415,7 +416,7 @@ export default function ProfileScreen() {
                       {item.label}
                     </Text>
                     {isSelected && (
-                      <Ionicons name="checkmark" size={20} color={Colors.primary} />
+                      <Ionicons name="checkmark" size={20} color={colors.primary} />
                     )}
                   </TouchableOpacity>
                 );
@@ -428,7 +429,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   themeSelectorRow: {
     flexDirection: "row",
     gap: 8,

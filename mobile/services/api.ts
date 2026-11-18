@@ -214,6 +214,15 @@ export async function createFood(data: {
   return parseJson(res);
 }
 
+export async function deleteFood(id: number) {
+  const res = await authFetch(`${API}/nutrition/foods/${id}/`, { method: 'DELETE' });
+  if (!res.ok) {
+    // 409: food is used in the diary and is protected from deletion
+    const data = await parseJson(res).catch(() => ({}));
+    throw new Error(data?.detail || 'Failed to delete food');
+  }
+}
+
 // ---- Nutrition: Entries ----
 export async function getDiaryEntries(date: string) {
   const res = await authFetch(`${API}/nutrition/entries/?date=${date}`);

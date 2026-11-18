@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import type { ThemeColors } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
   getWorkouts,
@@ -31,6 +31,7 @@ import type { Workout, WorkoutSet, Exercise } from '../../types';
 
 export default function WorkoutsScreen() {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,7 +253,7 @@ export default function WorkoutsScreen() {
           style={styles.startWorkoutButton}
           onPress={() => setShowStartModal(true)}
         >
-          <Ionicons name="flash" size={20} color={Colors.white} />
+          <Ionicons name="flash" size={20} color={colors.white} />
           <Text style={styles.startWorkoutText}>Start New Workout</Text>
         </TouchableOpacity>
       </View>
@@ -260,7 +261,7 @@ export default function WorkoutsScreen() {
       {/* Workouts History List */}
       {loading && !refreshing ? (
         <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -268,7 +269,7 @@ export default function WorkoutsScreen() {
           keyExtractor={(item) => `workout-${item.id}`}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
           }
           renderItem={({ item }) => {
             const isExpanded = expandedWorkoutId === item.id;
@@ -305,12 +306,12 @@ export default function WorkoutsScreen() {
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={styles.deleteWorkoutBtn}
                     >
-                      <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                      <Ionicons name="trash-outline" size={18} color={colors.error} />
                     </TouchableOpacity>
                     <Ionicons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={20}
-                      color={Colors.textSecondary}
+                      color={colors.textSecondary}
                       style={{ marginLeft: 6 }}
                     />
                   </View>
@@ -343,7 +344,7 @@ export default function WorkoutsScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="barbell-outline" size={54} color={Colors.textLight} />
+              <Ionicons name="barbell-outline" size={54} color={colors.textLight} />
               <Text style={styles.emptyTitle}>No Workouts Yet</Text>
               <Text style={styles.emptySubtitle}>
                 Tap "Start New Workout" above to begin your first training session!
@@ -371,7 +372,7 @@ export default function WorkoutsScreen() {
                 onPress={() => setShowStartModal(false)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -380,7 +381,7 @@ export default function WorkoutsScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Chest & Triceps, Leg Day"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
                 value={newWorkoutName}
                 onChangeText={setNewWorkoutName}
                 autoFocus
@@ -390,7 +391,7 @@ export default function WorkoutsScreen() {
               <TextInput
                 style={[styles.textInput, { height: 70, textAlignVertical: 'top' }]}
                 placeholder="e.g. Focused on progressive overload"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
                 value={newWorkoutNotes}
                 onChangeText={setNewWorkoutNotes}
                 multiline
@@ -402,7 +403,7 @@ export default function WorkoutsScreen() {
                 disabled={creatingWorkout}
               >
                 {creatingWorkout ? (
-                  <ActivityIndicator color={Colors.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.primaryButtonText}>Start Workout</Text>
                 )}
@@ -441,7 +442,7 @@ export default function WorkoutsScreen() {
           <ScrollView contentContainerStyle={styles.activeScrollContent}>
             {groupedActiveSets.length === 0 ? (
               <View style={styles.activeEmptyState}>
-                <Ionicons name="fitness-outline" size={54} color={Colors.textLight} />
+                <Ionicons name="fitness-outline" size={54} color={colors.textLight} />
                 <Text style={styles.activeEmptyTitle}>No Exercises Added</Text>
                 <Text style={styles.activeEmptySubtitle}>
                   Add exercises from the library below to start recording your sets.
@@ -471,7 +472,7 @@ export default function WorkoutsScreen() {
                         style={styles.addSetMiniButton}
                         onPress={() => handleOpenAddSet(exObj)}
                       >
-                        <Ionicons name="add" size={16} color={Colors.primary} />
+                        <Ionicons name="add" size={16} color={colors.primary} />
                         <Text style={styles.addSetMiniText}>Add Set</Text>
                       </TouchableOpacity>
                     </View>
@@ -500,7 +501,7 @@ export default function WorkoutsScreen() {
                             style={{ width: 34, alignItems: 'center' }}
                             onPress={() => handleDeleteSet(set.id)}
                           >
-                            <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                            <Ionicons name="trash-outline" size={16} color={colors.error} />
                           </TouchableOpacity>
                         </View>
                       ))}
@@ -515,7 +516,7 @@ export default function WorkoutsScreen() {
               style={styles.chooseExerciseButton}
               onPress={() => setShowExercisePicker(true)}
             >
-              <Ionicons name="add-circle" size={22} color={Colors.primary} />
+              <Ionicons name="add-circle" size={22} color={colors.primary} />
               <Text style={styles.chooseExerciseText}>+ Add Exercise from Library</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -535,16 +536,16 @@ export default function WorkoutsScreen() {
               onPress={() => setShowExercisePicker(false)}
               style={styles.modalCloseButton}
             >
-              <Ionicons name="close" size={24} color={Colors.textSecondary} />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.pickerSearchBar}>
-            <Ionicons name="search" size={20} color={Colors.textSecondary} style={{ marginRight: 8 }} />
+            <Ionicons name="search" size={20} color={colors.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Filter by name or muscle group..."
-              placeholderTextColor={Colors.textLight}
+              placeholderTextColor={colors.textLight}
               value={exerciseSearch}
               onChangeText={setExerciseSearch}
               clearButtonMode="while-editing"
@@ -572,7 +573,7 @@ export default function WorkoutsScreen() {
                     </Text>
                   )}
                 </View>
-                <Ionicons name="add-circle-outline" size={26} color={Colors.primary} />
+                <Ionicons name="add-circle-outline" size={26} color={colors.primary} />
               </TouchableOpacity>
             )}
             ListEmptyComponent={
@@ -607,7 +608,7 @@ export default function WorkoutsScreen() {
                 onPress={() => setSelectedExerciseForSet(null)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -642,7 +643,7 @@ export default function WorkoutsScreen() {
                 disabled={savingSet}
               >
                 {savingSet ? (
-                  <ActivityIndicator color={Colors.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.primaryButtonText}>Record Set</Text>
                 )}
@@ -655,7 +656,7 @@ export default function WorkoutsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -735,7 +736,7 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.surfaceVariant,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: Colors.background,
   },
   emptySetsText: {
     fontSize: 13,
@@ -976,7 +977,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 8,
     paddingHorizontal: 10,
-    backgroundColor: '#EBEBEB',
+    backgroundColor: Colors.border,
   },
   setsTableHeadCol: {
     fontSize: 11,
@@ -989,7 +990,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: Colors.border,
   },
   setsTableColText: {
     fontSize: 14,

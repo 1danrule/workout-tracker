@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
+import type { ThemeColors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateProfile } from '../../services/api';
 import type { Profile } from '../../types';
@@ -37,6 +38,8 @@ const GOAL_OPTIONS: Array<{ key: Goal; title: string; desc: string; icon: string
 ];
 
 export default function OnboardingScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { profile, refreshProfile } = useAuth();
 
   const [step, setStep] = useState<number>(1);
@@ -113,7 +116,7 @@ export default function OnboardingScreen() {
       <View style={styles.header}>
         {step > 1 ? (
           <TouchableOpacity onPress={handleBack} style={styles.headerBtn}>
-            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
         ) : (
           <View style={styles.headerBtn} />
@@ -146,7 +149,7 @@ export default function OnboardingScreen() {
                 <Ionicons
                   name="male"
                   size={52}
-                  color={sex === 'male' ? Colors.primary : Colors.textSecondary}
+                  color={sex === 'male' ? colors.primary : colors.textSecondary}
                 />
                 <Text style={[styles.cardTitle, sex === 'male' && styles.cardTitleSelected]}>
                   Male
@@ -160,7 +163,7 @@ export default function OnboardingScreen() {
                 <Ionicons
                   name="female"
                   size={52}
-                  color={sex === 'female' ? Colors.primary : Colors.textSecondary}
+                  color={sex === 'female' ? colors.primary : colors.textSecondary}
                 />
                 <Text style={[styles.cardTitle, sex === 'female' && styles.cardTitleSelected]}>
                   Female
@@ -186,7 +189,8 @@ export default function OnboardingScreen() {
                 onChangeText={setAge}
                 keyboardType="numeric"
                 placeholder="25"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
+              keyboardAppearance={isDark ? 'dark' : 'light'}
               />
             </View>
 
@@ -198,7 +202,8 @@ export default function OnboardingScreen() {
                 onChangeText={setHeightCm}
                 keyboardType="numeric"
                 placeholder="175"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
+              keyboardAppearance={isDark ? 'dark' : 'light'}
               />
             </View>
 
@@ -210,7 +215,8 @@ export default function OnboardingScreen() {
                 onChangeText={setWeightKg}
                 keyboardType="numeric"
                 placeholder="70"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
+              keyboardAppearance={isDark ? 'dark' : 'light'}
               />
             </View>
           </View>
@@ -236,7 +242,7 @@ export default function OnboardingScreen() {
                     <Ionicons
                       name={item.icon as any}
                       size={24}
-                      color={isSelected ? Colors.white : Colors.text}
+                      color={isSelected ? colors.white : colors.text}
                     />
                   </View>
                   <View style={styles.optionTextContainer}>
@@ -246,7 +252,7 @@ export default function OnboardingScreen() {
                     <Text style={styles.optionDesc}>{item.desc}</Text>
                   </View>
                   {isSelected && (
-                    <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                    <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               );
@@ -274,7 +280,7 @@ export default function OnboardingScreen() {
                     <Ionicons
                       name={item.icon as any}
                       size={24}
-                      color={isSelected ? Colors.white : Colors.text}
+                      color={isSelected ? colors.white : colors.text}
                     />
                   </View>
                   <View style={styles.optionTextContainer}>
@@ -284,7 +290,7 @@ export default function OnboardingScreen() {
                     <Text style={styles.optionDesc}>{item.desc}</Text>
                   </View>
                   {isSelected && (
-                    <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                    <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               );
@@ -301,7 +307,7 @@ export default function OnboardingScreen() {
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator color={Colors.white} />
+            <ActivityIndicator color={colors.white} />
           ) : (
             <>
               <Text style={styles.primaryButtonText}>
@@ -310,7 +316,7 @@ export default function OnboardingScreen() {
               <Ionicons
                 name={step === 4 ? 'checkmark' : 'arrow-forward'}
                 size={20}
-                color={Colors.white}
+                color={colors.white}
                 style={{ marginLeft: 6 }}
               />
             </>
@@ -321,7 +327,7 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

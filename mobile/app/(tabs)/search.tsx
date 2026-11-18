@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,12 +13,12 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Colors } from '../../constants/colors';
+import type { ThemeColors } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
-import { searchFoods, searchOFF, searchOFFBarcode, createFood, addFoodEntry } from '../../services/api';
+import { searchFoods, searchOFF, searchOFFBarcode, createFood, deleteFood, addFoodEntry } from '../../services/api';
 import type { Food, OFFSearchResult } from '../../types';
 
 type TabType = 'my_foods' | 'off';
@@ -33,6 +33,7 @@ const MEAL_OPTIONS: { key: MealType; label: string }[] = [
 
 export default function SearchScreen() {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ meal?: string; date?: string }>();
 
   const [activeTab, setActiveTab] = useState<TabType>('my_foods');
@@ -48,6 +49,7 @@ export default function SearchScreen() {
     id?: number;
     name: string;
     brand: string;
+    barcode?: string;
     calories_per_100g: number;
     protein_per_100g: number;
     fat_per_100g: number;
@@ -186,6 +188,7 @@ export default function SearchScreen() {
       id: 'id' in food ? food.id : undefined,
       name: food.name,
       brand: food.brand || '',
+      barcode: food.barcode || '',
       calories_per_100g: Number(food.calories_per_100g) || 0,
       protein_per_100g: Number(food.protein_per_100g) || 0,
       fat_per_100g: Number(food.fat_per_100g) || 0,
@@ -227,22 +230,43 @@ export default function SearchScreen() {
         meal: selectedMeal,
       });
 
+      // Close the modal and stay on this screen (no confirmation dialog, no navigation)
       setSelectedFood(null);
-      Alert.alert('Success', `${selectedFood.name} added to your ${selectedMeal}!`, [
-        {
-          text: 'Go to Diary',
-          onPress: () => router.push('/(tabs)'),
-        },
-        {
-          text: 'Add More',
-          style: 'cancel',
-        },
-      ]);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Could not add food to diary');
     } finally {
       setAddingToDiary(false);
     }
+  };
+
+  const handleDeleteFood = (food: Food) => {
+    Alert.alert('Delete food', `Delete "${food.name}" from My Foods?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteFood(food.id);
+            setMyFoods((prev) => prev.filter((f) => f.id !== food.id));
+          } catch (e: any) {
+            Alert.alert('Cannot delete', e.message || 'Failed to delete food');
+          }
+        },
+      },
+    ]);
+  };
+
+  // Open Food Facts sometimes has no nutrition facts for a product (all zeros).
+  // Let the user enter the values by hand, prefilled with the scanned product.
+  const handleEnterManually = () => {
+    if (!selectedFood) return;
+    setCustomName(selectedFood.name);
+    setCustomBrand(selectedFood.brand);
+    setCustomBarcode(selectedFood.barcode || '');
+    setSelectedFood(null);
+    // Small delay so the first modal is fully dismissed before the second opens (iOS)
+    setTimeout(() => setShowCreateModal(true), 350);
   };
 
   const handleCreateCustomFood = async () => {
@@ -308,11 +332,11 @@ export default function SearchScreen() {
       {/* Search Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={[styles.searchBar, { backgroundColor: colors.surfaceVariant }]}>
-          <Ionicons name="search" size={20} color={Colors.textSecondary} style={{ marginRight: 8 }} />
+          <Ionicons name="search" size={20} color={colors.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
             placeholder={activeTab === 'my_foods' ? 'Search your foods...' : 'Search Open Food Facts...'}
-            placeholderTextColor={Colors.textLight}
+            placeholderTextColor={colors.textLight}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearchSubmit}
@@ -325,7 +349,7 @@ export default function SearchScreen() {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={handleOpenScanner} style={styles.scanIconButton}>
-              <Ionicons name="barcode-outline" size={22} color={Colors.primary} />
+              <Ionicons name="barcode-outline" size={22} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -358,7 +382,7 @@ export default function SearchScreen() {
           style={styles.actionButton}
           onPress={handleOpenScanner}
         >
-          <Ionicons name="scan-outline" size={18} color={Colors.primary} />
+          <Ionicons name="scan-outline" size={18} color={colors.primary} />
           <Text style={styles.actionButtonText}>Scan Barcode</Text>
         </TouchableOpacity>
 
@@ -366,7 +390,7 @@ export default function SearchScreen() {
           style={styles.actionButton}
           onPress={() => setShowCreateModal(true)}
         >
-          <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+          <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
           <Text style={styles.actionButtonText}>Create Food</Text>
         </TouchableOpacity>
       </View>
@@ -374,7 +398,7 @@ export default function SearchScreen() {
       {/* Results List */}
       {loading ? (
         <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : activeTab === 'my_foods' ? (
         <FlatList
@@ -399,13 +423,24 @@ export default function SearchScreen() {
                 <Text style={styles.foodItemCalories}>
                   {Math.round(item.calories_per_100g)} kcal
                 </Text>
-                <Ionicons name="add" size={22} color={Colors.primary} />
+                <View style={styles.foodItemActions}>
+                  {item.is_custom && (
+                    <TouchableOpacity
+                      onPress={() => handleDeleteFood(item)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      accessibilityLabel={`Delete ${item.name}`}
+                    >
+                      <Ionicons name="trash-outline" size={19} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                  <Ionicons name="add" size={22} color={colors.primary} />
+                </View>
               </View>
             </TouchableOpacity>
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="nutrition-outline" size={48} color={Colors.textLight} />
+              <Ionicons name="nutrition-outline" size={48} color={colors.textLight} />
               <Text style={styles.emptyTitle}>No Foods Found</Text>
               <Text style={styles.emptySubtitle}>
                 {searchQuery
@@ -438,13 +473,13 @@ export default function SearchScreen() {
                 <Text style={styles.foodItemCalories}>
                   {Math.round(item.calories_per_100g)} kcal
                 </Text>
-                <Ionicons name="add" size={22} color={Colors.primary} />
+                <Ionicons name="add" size={22} color={colors.primary} />
               </View>
             </TouchableOpacity>
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="globe-outline" size={48} color={Colors.textLight} />
+              <Ionicons name="globe-outline" size={48} color={colors.textLight} />
               <Text style={styles.emptyTitle}>Open Food Facts Database</Text>
               <Text style={styles.emptySubtitle}>
                 Search millions of global food products and barcode items
@@ -479,7 +514,7 @@ export default function SearchScreen() {
                 onPress={() => setSelectedFood(null)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -498,6 +533,21 @@ export default function SearchScreen() {
                 <Text style={styles.gramsSuffix}>grams</Text>
               </View>
 
+              {selectedFood?.isOFF &&
+                selectedFood.calories_per_100g === 0 &&
+                selectedFood.protein_per_100g === 0 &&
+                selectedFood.fat_per_100g === 0 &&
+                selectedFood.carbs_per_100g === 0 && (
+                  <View style={styles.noDataNotice}>
+                    <Text style={styles.noDataText}>
+                      Open Food Facts has no nutrition data for this product, so all values are 0.
+                    </Text>
+                    <TouchableOpacity onPress={handleEnterManually}>
+                      <Text style={styles.noDataLink}>Enter values manually</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
               {/* Calculated Macro Summary */}
               <View style={styles.calculatedMacrosBox}>
                 <View style={styles.calculatedMacroCol}>
@@ -505,15 +555,15 @@ export default function SearchScreen() {
                   <Text style={styles.calcLabel}>Calories</Text>
                 </View>
                 <View style={styles.calculatedMacroCol}>
-                  <Text style={[styles.calcValue, { color: Colors.protein }]}>{calcProt}g</Text>
+                  <Text style={[styles.calcValue, { color: colors.protein }]}>{calcProt}g</Text>
                   <Text style={styles.calcLabel}>Protein</Text>
                 </View>
                 <View style={styles.calculatedMacroCol}>
-                  <Text style={[styles.calcValue, { color: Colors.carbs }]}>{calcCarbs}g</Text>
+                  <Text style={[styles.calcValue, { color: colors.carbs }]}>{calcCarbs}g</Text>
                   <Text style={styles.calcLabel}>Carbs</Text>
                 </View>
                 <View style={styles.calculatedMacroCol}>
-                  <Text style={[styles.calcValue, { color: Colors.fat }]}>{calcFat}g</Text>
+                  <Text style={[styles.calcValue, { color: colors.fat }]}>{calcFat}g</Text>
                   <Text style={styles.calcLabel}>Fat</Text>
                 </View>
               </View>
@@ -558,7 +608,7 @@ export default function SearchScreen() {
                 disabled={addingToDiary}
               >
                 {addingToDiary ? (
-                  <ActivityIndicator color={Colors.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.primaryButtonText}>Add to Diary</Text>
                 )}
@@ -586,7 +636,7 @@ export default function SearchScreen() {
                 onPress={() => setShowCreateModal(false)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -595,7 +645,7 @@ export default function SearchScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Oatmeal with Whey"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
                 value={customName}
                 onChangeText={setCustomName}
               />
@@ -604,7 +654,7 @@ export default function SearchScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Quaker / Homemade"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
                 value={customBrand}
                 onChangeText={setCustomBrand}
               />
@@ -613,7 +663,7 @@ export default function SearchScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. 4032539018105"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
                 value={customBarcode}
                 onChangeText={setCustomBarcode}
                 keyboardType="numeric"
@@ -629,7 +679,7 @@ export default function SearchScreen() {
                   <TextInput
                     style={styles.macroTextInput}
                     placeholder="0"
-                    placeholderTextColor={Colors.textLight}
+                    placeholderTextColor={colors.textLight}
                     keyboardType="numeric"
                     value={customCalories}
                     onChangeText={setCustomCalories}
@@ -640,7 +690,7 @@ export default function SearchScreen() {
                   <TextInput
                     style={styles.macroTextInput}
                     placeholder="0"
-                    placeholderTextColor={Colors.textLight}
+                    placeholderTextColor={colors.textLight}
                     keyboardType="numeric"
                     value={customProtein}
                     onChangeText={setCustomProtein}
@@ -654,7 +704,7 @@ export default function SearchScreen() {
                   <TextInput
                     style={styles.macroTextInput}
                     placeholder="0"
-                    placeholderTextColor={Colors.textLight}
+                    placeholderTextColor={colors.textLight}
                     keyboardType="numeric"
                     value={customCarbs}
                     onChangeText={setCustomCarbs}
@@ -665,7 +715,7 @@ export default function SearchScreen() {
                   <TextInput
                     style={styles.macroTextInput}
                     placeholder="0"
-                    placeholderTextColor={Colors.textLight}
+                    placeholderTextColor={colors.textLight}
                     keyboardType="numeric"
                     value={customFat}
                     onChangeText={setCustomFat}
@@ -679,7 +729,7 @@ export default function SearchScreen() {
                 disabled={creatingFood}
               >
                 {creatingFood ? (
-                  <ActivityIndicator color={Colors.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.primaryButtonText}>Save Food</Text>
                 )}
@@ -713,7 +763,7 @@ export default function SearchScreen() {
                 onPress={() => setShowScanner(false)}
                 style={styles.scannerCloseButton}
               >
-                <Ionicons name="close" size={28} color={Colors.white} />
+                <Ionicons name="close" size={28} color={colors.white} />
               </TouchableOpacity>
               <Text style={styles.scannerTopTitle}>Scan Food Barcode</Text>
               <View style={{ width: 44 }} />
@@ -727,7 +777,7 @@ export default function SearchScreen() {
                 <View style={[styles.corner, styles.cornerBR]} />
                 {false && (
                   <View style={styles.scannerLoadingBox}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
+                    <ActivityIndicator size="large" color={colors.primary} />
                     <Text style={styles.scannerLoadingText}>Searching product...</Text>
                   </View>
                 )}
@@ -752,7 +802,7 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -893,6 +943,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 4,
   },
+  foodItemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+  },
   foodItemCalories: {
     fontSize: 14,
     fontWeight: '700',
@@ -945,6 +1000,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  noDataNotice: {
+    backgroundColor: Colors.surfaceVariant,
+    borderWidth: 1,
+    borderColor: Colors.warning,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+  },
+  noDataText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  noDataLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
+    marginTop: 8,
   },
   modalCloseButton: {
     padding: 4,

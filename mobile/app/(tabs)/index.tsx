@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import type { ThemeColors } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getDailySummary, getDiaryEntries, deleteFoodEntry } from '../../services/api';
 import type { DailySummary, FoodEntry } from '../../types';
@@ -47,6 +47,7 @@ function shiftDate(dateStr: string, days: number): string {
 
 export default function DiaryScreen() {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [currentDate, setCurrentDate] = useState<string>(() => {
     return new Date().toISOString().split('T')[0];
   });
@@ -165,7 +166,7 @@ export default function DiaryScreen() {
           style={styles.dateCenter}
           onPress={() => setCurrentDate(new Date().toISOString().split('T')[0])}
         >
-          <Ionicons name="calendar-outline" size={18} color={Colors.primary} style={{ marginRight: 6 }} />
+          <Ionicons name="calendar-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
           <Text style={[styles.dateText, { color: colors.text }]}>{formatDateDisplay(currentDate)}</Text>
         </TouchableOpacity>
 
@@ -180,7 +181,7 @@ export default function DiaryScreen() {
 
       {loading && !refreshing ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView
@@ -208,7 +209,7 @@ export default function DiaryScreen() {
                       cx={ringSize / 2}
                       cy={ringSize / 2}
                       r={ringRadius}
-                      stroke={calPercent > 100 ? Colors.warning : Colors.calories}
+                      stroke={calPercent > 100 ? colors.warning : colors.calories}
                       strokeWidth={strokeWidth}
                       strokeDasharray={`${ringCircumference} ${ringCircumference}`}
                       strokeDashoffset={ringDashoffset}
@@ -232,7 +233,7 @@ export default function DiaryScreen() {
                 </View>
                 <View style={styles.calorieStatRow}>
                   <Text style={[styles.calorieStatLabel, { color: colors.textSecondary }]}>Food Eaten:</Text>
-                  <Text style={[styles.calorieStatNumber, { color: Colors.calories }]}>
+                  <Text style={[styles.calorieStatNumber, { color: colors.calories }]}>
                     {Math.round(caloriesEaten)} kcal
                   </Text>
                 </View>
@@ -241,7 +242,7 @@ export default function DiaryScreen() {
                   <Text
                     style={[
                       styles.calorieRemainingNumber,
-                      { color: caloriesRemaining < 0 ? Colors.error : Colors.primary },
+                      { color: caloriesRemaining < 0 ? colors.error : colors.primary },
                     ]}
                   >
                     {Math.round(caloriesRemaining)} kcal
@@ -256,7 +257,7 @@ export default function DiaryScreen() {
               <View style={styles.macroCol}>
                 <View style={styles.macroHeader}>
                   <Text style={[styles.macroName, { color: colors.textSecondary }]}>Protein</Text>
-                  <Text style={[styles.macroAmount, { color: Colors.protein }]}>
+                  <Text style={[styles.macroAmount, { color: colors.protein }]}>
                     {Math.round(proteinEaten)} / {Math.round(proteinTarget)}g
                   </Text>
                 </View>
@@ -264,7 +265,7 @@ export default function DiaryScreen() {
                   <View
                     style={[
                       styles.progressBarFill,
-                      { width: `${proteinPercent}%`, backgroundColor: Colors.protein },
+                      { width: `${proteinPercent}%`, backgroundColor: colors.protein },
                     ]}
                   />
                 </View>
@@ -274,7 +275,7 @@ export default function DiaryScreen() {
               <View style={styles.macroCol}>
                 <View style={styles.macroHeader}>
                   <Text style={[styles.macroName, { color: colors.textSecondary }]}>Carbs</Text>
-                  <Text style={[styles.macroAmount, { color: Colors.carbs }]}>
+                  <Text style={[styles.macroAmount, { color: colors.carbs }]}>
                     {Math.round(carbsEaten)} / {Math.round(carbsTarget)}g
                   </Text>
                 </View>
@@ -282,7 +283,7 @@ export default function DiaryScreen() {
                   <View
                     style={[
                       styles.progressBarFill,
-                      { width: `${carbsPercent}%`, backgroundColor: Colors.carbs },
+                      { width: `${carbsPercent}%`, backgroundColor: colors.carbs },
                     ]}
                   />
                 </View>
@@ -292,7 +293,7 @@ export default function DiaryScreen() {
               <View style={styles.macroCol}>
                 <View style={styles.macroHeader}>
                   <Text style={[styles.macroName, { color: colors.textSecondary }]}>Fat</Text>
-                  <Text style={[styles.macroAmount, { color: Colors.fat }]}>
+                  <Text style={[styles.macroAmount, { color: colors.fat }]}>
                     {Math.round(fatEaten)} / {Math.round(fatTarget)}g
                   </Text>
                 </View>
@@ -300,7 +301,7 @@ export default function DiaryScreen() {
                   <View
                     style={[
                       styles.progressBarFill,
-                      { width: `${fatPercent}%`, backgroundColor: Colors.fat },
+                      { width: `${fatPercent}%`, backgroundColor: colors.fat },
                     ]}
                   />
                 </View>
@@ -326,7 +327,7 @@ export default function DiaryScreen() {
                     <Ionicons
                       name={meal.icon as any}
                       size={20}
-                      color={Colors.primary}
+                      color={colors.primary}
                       style={{ marginRight: 8 }}
                     />
                     <Text style={[styles.mealTitle, { color: colors.text }]}>{meal.label}</Text>
@@ -336,7 +337,7 @@ export default function DiaryScreen() {
                     <Ionicons
                       name={isCollapsed ? 'chevron-down' : 'chevron-up'}
                       size={18}
-                      color={Colors.textSecondary}
+                      color={colors.textSecondary}
                       style={{ marginLeft: 6 }}
                     />
                   </View>
@@ -355,8 +356,7 @@ export default function DiaryScreen() {
                               {entry.food_detail?.name || 'Food Item'}
                             </Text>
                             <Text style={styles.foodSubtext}>
-                              {entry.food_detail?.brand ? `${entry.food_detail.brand} • ` : ''}
-                              {entry.grams}g • P: {Math.round(entry.protein)}g | C: {Math.round(entry.carbs)}g | F: {Math.round(entry.fat)}g
+                              P: {Math.round(entry.protein)}g | C: {Math.round(entry.carbs)}g | F: {Math.round(entry.fat)}g
                             </Text>
                           </View>
                           <View style={styles.foodActions}>
@@ -366,7 +366,7 @@ export default function DiaryScreen() {
                               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               style={styles.deleteButton}
                             >
-                              <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                              <Ionicons name="trash-outline" size={18} color={colors.error} />
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -378,7 +378,7 @@ export default function DiaryScreen() {
                       style={styles.addFoodButton}
                       onPress={() => navigateToAddFood(meal.key)}
                     >
-                      <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+                      <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
                       <Text style={styles.addFoodText}>Add Food</Text>
                     </TouchableOpacity>
                   </View>
@@ -392,7 +392,7 @@ export default function DiaryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

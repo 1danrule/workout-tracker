@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import type { ThemeColors } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getCalorieHistory, getWeightHistory, logWeight } from '../../services/api';
 import type { CalorieDay, CalorieHistoryResponse, WeightLog } from '../../types';
@@ -24,6 +24,7 @@ type PeriodOption = 7 | 30;
 
 export default function ProgressScreen() {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [activeTab, setActiveTab] = useState<SectionTab>('calories');
   const [period, setPeriod] = useState<PeriodOption>(7);
 
@@ -140,7 +141,7 @@ export default function ProgressScreen() {
             <Ionicons
               name="flame"
               size={18}
-              color={activeTab === 'calories' ? Colors.white : Colors.textSecondary}
+              color={activeTab === 'calories' ? colors.white : colors.textSecondary}
               style={{ marginRight: 6 }}
             />
             <Text
@@ -160,7 +161,7 @@ export default function ProgressScreen() {
             <Ionicons
               name="scale"
               size={18}
-              color={activeTab === 'weight' ? Colors.white : Colors.textSecondary}
+              color={activeTab === 'weight' ? colors.white : colors.textSecondary}
               style={{ marginRight: 6 }}
             />
             <Text
@@ -198,12 +199,12 @@ export default function ProgressScreen() {
 
       {loading ? (
         <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
           {activeTab === 'calories' ? (
             /* ================= CALORIES TAB ================= */
@@ -212,21 +213,21 @@ export default function ProgressScreen() {
               <View style={styles.statsGrid}>
                 <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Text style={styles.statLabel}>Avg Intake</Text>
-                  <Text style={[styles.statValue, { color: Colors.calories }]}>
+                  <Text style={[styles.statValue, { color: colors.calories }]}>
                     {avgCaloriesPeriod} <Text style={styles.statUnit}>kcal</Text>
                   </Text>
                 </View>
 
                 <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Text style={styles.statLabel}>Daily Target</Text>
-                  <Text style={[styles.statValue, { color: Colors.primary }]}>
+                  <Text style={[styles.statValue, { color: colors.primary }]}>
                     {targetCalories} <Text style={styles.statUnit}>kcal</Text>
                   </Text>
                 </View>
 
                 <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Text style={styles.statLabel}>Avg Protein</Text>
-                  <Text style={[styles.statValue, { color: Colors.protein }]}>
+                  <Text style={[styles.statValue, { color: colors.protein }]}>
                     {avgProteinPeriod} <Text style={styles.statUnit}>g</Text>
                   </Text>
                 </View>
@@ -237,9 +238,9 @@ export default function ProgressScreen() {
                 <View style={styles.chartHeader}>
                   <Text style={[styles.chartTitle, { color: colors.text }]}>Daily Calories</Text>
                   <View style={styles.legendRow}>
-                    <View style={[styles.legendDot, { backgroundColor: Colors.calories }]} />
+                    <View style={[styles.legendDot, { backgroundColor: colors.calories }]} />
                     <Text style={styles.legendText}>Intake</Text>
-                    <View style={[styles.legendLine, { backgroundColor: Colors.primary }]} />
+                    <View style={[styles.legendLine, { backgroundColor: colors.primary }]} />
                     <Text style={styles.legendText}>Target ({targetCalories})</Text>
                   </View>
                 </View>
@@ -278,10 +279,10 @@ export default function ProgressScreen() {
                               {
                                 height: `${Math.max(heightPercent, 4)}%`,
                                 backgroundColor: isSelected
-                                  ? Colors.primary
+                                  ? colors.primary
                                   : isOverTarget
-                                  ? Colors.warning
-                                  : Colors.calories,
+                                  ? colors.warning
+                                  : colors.calories,
                               },
                             ]}
                           />
@@ -311,18 +312,18 @@ export default function ProgressScreen() {
                     </View>
 
                     <View style={styles.macroPillsRow}>
-                      <View style={[styles.macroPill, { backgroundColor: Colors.proteinLight }]}>
-                        <Text style={[styles.macroPillText, { color: Colors.protein }]}>
+                      <View style={[styles.macroPill, { backgroundColor: colors.proteinLight }]}>
+                        <Text style={[styles.macroPillText, { color: colors.protein }]}>
                           Protein: {selectedDay.protein_g}g
                         </Text>
                       </View>
-                      <View style={[styles.macroPill, { backgroundColor: Colors.carbsLight }]}>
-                        <Text style={[styles.macroPillText, { color: Colors.carbsDark }]}>
+                      <View style={[styles.macroPill, { backgroundColor: colors.carbsLight }]}>
+                        <Text style={[styles.macroPillText, { color: colors.carbsDark }]}>
                           Carbs: {selectedDay.carbs_g}g
                         </Text>
                       </View>
-                      <View style={[styles.macroPill, { backgroundColor: Colors.fatLight }]}>
-                        <Text style={[styles.macroPillText, { color: Colors.fatDark }]}>
+                      <View style={[styles.macroPill, { backgroundColor: colors.fatLight }]}>
+                        <Text style={[styles.macroPillText, { color: colors.fatDark }]}>
                           Fat: {selectedDay.fat_g}g
                         </Text>
                       </View>
@@ -348,13 +349,13 @@ export default function ProgressScreen() {
                     <Ionicons
                       name={parseFloat(weightChange) <= 0 ? 'arrow-down' : 'arrow-up'}
                       size={18}
-                      color={parseFloat(weightChange) <= 0 ? Colors.success : Colors.warning}
+                      color={parseFloat(weightChange) <= 0 ? colors.success : colors.warning}
                     />
                     <Text
                       style={[
                         styles.weightChangeText,
                         {
-                          color: parseFloat(weightChange) <= 0 ? Colors.success : Colors.warning,
+                          color: parseFloat(weightChange) <= 0 ? colors.success : colors.warning,
                         },
                       ]}
                     >
@@ -370,7 +371,7 @@ export default function ProgressScreen() {
                     setShowWeightModal(true);
                   }}
                 >
-                  <Ionicons name="add" size={20} color={Colors.white} />
+                  <Ionicons name="add" size={20} color={colors.white} />
                   <Text style={styles.logWeightBtnText}>Log Weight</Text>
                 </TouchableOpacity>
               </View>
@@ -381,7 +382,7 @@ export default function ProgressScreen() {
 
                 {sortedWeights.length === 0 ? (
                   <View style={styles.emptyWeightBox}>
-                    <Ionicons name="scale-outline" size={48} color={Colors.textLight} />
+                    <Ionicons name="scale-outline" size={48} color={colors.textLight} />
                     <Text style={styles.emptyWeightText}>
                       No weight logs for this period.
                     </Text>
@@ -433,7 +434,7 @@ export default function ProgressScreen() {
                     .map((item) => (
                       <View key={item.id || item.date} style={[styles.historyRow, { borderBottomColor: colors.border }]}>
                         <View style={styles.historyDateCol}>
-                          <Ionicons name="calendar-outline" size={16} color={Colors.textSecondary} />
+                          <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
                           <Text style={[styles.historyDateText, { color: colors.text }]}>{item.date}</Text>
                         </View>
                         <Text style={styles.historyWeightText}>{item.weight_kg} kg</Text>
@@ -458,7 +459,7 @@ export default function ProgressScreen() {
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Log Weight</Text>
               <TouchableOpacity onPress={() => setShowWeightModal(false)}>
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -470,7 +471,7 @@ export default function ProgressScreen() {
                 onChangeText={setNewWeightInput}
                 keyboardType="numeric"
                 placeholder="75.5"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
                 autoFocus
               />
 
@@ -480,7 +481,7 @@ export default function ProgressScreen() {
                 value={newWeightDate}
                 onChangeText={setNewWeightDate}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
               />
 
               <TouchableOpacity
@@ -489,7 +490,7 @@ export default function ProgressScreen() {
                 disabled={loggingWeight}
               >
                 {loggingWeight ? (
-                  <ActivityIndicator color={Colors.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.modalSubmitBtnText}>Save Entry</Text>
                 )}
@@ -502,7 +503,7 @@ export default function ProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -862,7 +863,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: Colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
