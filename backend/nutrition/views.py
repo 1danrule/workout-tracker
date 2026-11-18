@@ -18,7 +18,9 @@ from .serializers import FoodEntrySerializer, FoodSerializer
 
 def visible_foods(user):
     """Shared foods plus this user's own custom foods."""
-    return Food.objects.filter(Q(owner__isnull=True) | Q(owner=user))
+    if user and user.is_authenticated:
+        return Food.objects.filter(Q(owner__isnull=True) | Q(owner=user))
+    return Food.objects.filter(owner__isnull=True)
 
 
 def get_date_param(request):
@@ -35,6 +37,17 @@ def get_date_param(request):
     return parsed
 
 
+class FoodSearchFilter(filters.SearchFilter):
+    """Normalize common typos/endings like варенные -> вареные, жаренная -> жареная."""
+    def get_search_terms(self, request):
+        terms = super().get_search_terms(request)
+        normalized = []
+        for term in terms:
+            t = term.replace('варенн', 'варен').replace('жаренн', 'жарен').replace('запеченн', 'запечен')
+            normalized.append(t)
+        return normalized
+
+
 class FoodListCreateView(generics.ListCreateAPIView):
     """
     GET  /api/nutrition/foods/?search=chicken   - search by name or brand
@@ -43,7 +56,7 @@ class FoodListCreateView(generics.ListCreateAPIView):
     """
     serializer_class = FoodSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [FoodSearchFilter]
     search_fields = ['name', 'brand']
 
     def get_queryset(self):

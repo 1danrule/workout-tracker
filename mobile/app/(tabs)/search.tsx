@@ -116,10 +116,15 @@ export default function SearchScreen() {
     }
   }, []);
 
-  // Initial load of foods when on "My Foods"
+  // Live search with 300ms debounce for My Foods, or instant load on tab switch
   useEffect(() => {
-    performSearch(searchQuery, activeTab);
-  }, [activeTab]);
+    if (activeTab === 'my_foods') {
+      const timer = setTimeout(() => {
+        performSearch(searchQuery, 'my_foods');
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, activeTab, performSearch]);
 
   const handleSearchSubmit = () => {
     performSearch(searchQuery, activeTab);
