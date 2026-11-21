@@ -205,6 +205,8 @@ export async function createFood(data: {
   protein_per_100g: number;
   fat_per_100g: number;
   carbs_per_100g: number;
+  serving_grams?: number;
+  serving_name?: string;
 }) {
   const res = await authFetch(`${API}/nutrition/foods/`, {
     method: 'POST',

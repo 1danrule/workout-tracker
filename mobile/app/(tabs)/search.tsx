@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { ThemeColors } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
+import AnimatedSheetModal from '../../components/AnimatedSheetModal';
 import { searchFoods, searchOFF, searchOFFBarcode, createFood, deleteFood, addFoodEntry } from '../../services/api';
 import type { Food, OFFSearchResult } from '../../types';
 
@@ -54,10 +54,15 @@ export default function SearchScreen() {
     protein_per_100g: number;
     fat_per_100g: number;
     carbs_per_100g: number;
+    serving_grams?: number | null;
+    serving_name?: string;
     isOFF?: boolean;
   } | null>(null);
 
   const [gramsInput, setGramsInput] = useState('100');
+  // Pieces mode exists only for foods that have a piece weight (toast, egg...)
+  const [unitMode, setUnitMode] = useState<'grams' | 'pieces'>('grams');
+  const [piecesInput, setPiecesInput] = useState('1');
   const [selectedMeal, setSelectedMeal] = useState<MealType>(
     (params.meal as MealType) || 'breakfast'
   );
@@ -75,6 +80,8 @@ export default function SearchScreen() {
   const [customProtein, setCustomProtein] = useState('');
   const [customFat, setCustomFat] = useState('');
   const [customCarbs, setCustomCarbs] = useState('');
+  const [customServingGrams, setCustomServingGrams] = useState('');
+  const [customServingName, setCustomServingName] = useState('');
   const [creatingFood, setCreatingFood] = useState(false);
 
   // Barcode Scanner state
@@ -217,6 +224,8 @@ export default function SearchScreen() {
   };
 
   const handleSelectFood = (food: Food | OFFSearchResult, isOFF: boolean) => {
+    const servingGrams = Number(food.serving_grams) || 0;
+    const hasPiece = servingGrams > 0;
     setSelectedFood({
       id: 'id' in food ? food.id : undefined,
       name: food.name,
@@ -226,16 +235,30 @@ export default function SearchScreen() {
       protein_per_100g: Number(food.protein_per_100g) || 0,
       fat_per_100g: Number(food.fat_per_100g) || 0,
       carbs_per_100g: Number(food.carbs_per_100g) || 0,
+      serving_grams: hasPiece ? servingGrams : null,
+      serving_name: hasPiece ? food.serving_name || 'piece' : '',
       isOFF,
     });
     setGramsInput('100');
+    setPiecesInput('1');
+    setUnitMode(hasPiece ? 'pieces' : 'grams');
+  };
+
+  const adjustPieces = (delta: number) => {
+    const current = parseFloat(piecesInput.replace(',', '.')) || 0;
+    setPiecesInput(String(Math.max(0.5, current + delta)));
   };
 
   const handleConfirmAddToDiary = async () => {
     if (!selectedFood) return;
-    const grams = parseFloat(gramsInput);
-    if (isNaN(grams) || grams <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid weight in grams (> 0)');
+    const grams = Math.round(computeGrams() * 10) / 10;
+    if (!(grams > 0)) {
+      Alert.alert(
+        'Invalid Amount',
+        unitMode === 'pieces'
+          ? 'Please enter a valid number of pieces (> 0)'
+          : 'Please enter a valid weight in grams (> 0)'
+      );
       return;
     }
 
@@ -259,6 +282,8 @@ export default function SearchScreen() {
           protein_per_100g: selectedFood.protein_per_100g,
           fat_per_100g: selectedFood.fat_per_100g,
           carbs_per_100g: selectedFood.carbs_per_100g,
+          serving_grams: selectedFood.serving_grams || undefined,
+          serving_name: selectedFood.serving_grams ? selectedFood.serving_name || undefined : undefined,
         });
         foodId = created.id;
       }
@@ -304,6 +329,8 @@ export default function SearchScreen() {
     setCustomName(selectedFood.name);
     setCustomBrand(selectedFood.brand);
     setCustomBarcode(selectedFood.barcode || '');
+    setCustomServingGrams(selectedFood.serving_grams ? String(selectedFood.serving_grams) : '');
+    setCustomServingName(selectedFood.serving_grams ? selectedFood.serving_name || '' : '');
     setSelectedFood(null);
     // Small delay so the first modal is fully dismissed before the second opens (iOS)
     setTimeout(() => setShowCreateModal(true), 350);
@@ -325,6 +352,16 @@ export default function SearchScreen() {
       return;
     }
 
+    // Optional piece weight (only for foods you count in pieces)
+    let servingGrams: number | undefined;
+    if (customServingGrams.trim()) {
+      servingGrams = parseFloat(customServingGrams.replace(',', '.'));
+      if (isNaN(servingGrams) || servingGrams <= 0) {
+        Alert.alert('Invalid Piece Weight', 'Enter the weight of one piece in grams, or leave it empty');
+        return;
+      }
+    }
+
     setCreatingFood(true);
     try {
       const created = await createFood({
@@ -335,6 +372,8 @@ export default function SearchScreen() {
         protein_per_100g: prot,
         fat_per_100g: fat,
         carbs_per_100g: carbs,
+        serving_grams: servingGrams,
+        serving_name: servingGrams ? customServingName.trim() || undefined : undefined,
       });
 
       setShowCreateModal(false);
@@ -345,6 +384,8 @@ export default function SearchScreen() {
       setCustomProtein('');
       setCustomFat('');
       setCustomCarbs('');
+      setCustomServingGrams('');
+      setCustomServingName('');
 
       // Refresh list
       performSearch(searchQuery, 'my_foods');
@@ -359,13 +400,28 @@ export default function SearchScreen() {
     }
   };
 
+  // Keep the last selected food while the sheet slides out, so its content doesn't blank out mid-animation
+  const lastFoodRef = useRef(selectedFood);
+  if (selectedFood) lastFoodRef.current = selectedFood;
+  const shownFood = selectedFood ?? lastFoodRef.current;
+
+  // Total grams being logged: pieces x weight of one piece, or the typed grams
+  function computeGrams(): number {
+    if (unitMode === 'pieces' && shownFood?.serving_grams) {
+      return (parseFloat(piecesInput.replace(',', '.')) || 0) * shownFood.serving_grams;
+    }
+    return parseFloat(gramsInput.replace(',', '.')) || 0;
+  }
+  const pieceName = shownFood?.serving_name || 'piece';
+  const pieceNamePlural = `${pieceName}s`;
+
   // Calculations for Add to Diary Modal
-  const gramsNum = parseFloat(gramsInput) || 0;
+  const gramsNum = computeGrams();
   const factor = gramsNum / 100;
-  const calcCals = selectedFood ? Math.round(selectedFood.calories_per_100g * factor) : 0;
-  const calcProt = selectedFood ? (selectedFood.protein_per_100g * factor).toFixed(1) : '0';
-  const calcCarbs = selectedFood ? (selectedFood.carbs_per_100g * factor).toFixed(1) : '0';
-  const calcFat = selectedFood ? (selectedFood.fat_per_100g * factor).toFixed(1) : '0';
+  const calcCals = shownFood ? Math.round(shownFood.calories_per_100g * factor) : 0;
+  const calcProt = shownFood ? (shownFood.protein_per_100g * factor).toFixed(1) : '0';
+  const calcCarbs = shownFood ? (shownFood.carbs_per_100g * factor).toFixed(1) : '0';
+  const calcFat = shownFood ? (shownFood.fat_per_100g * factor).toFixed(1) : '0';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -531,24 +587,15 @@ export default function SearchScreen() {
       )}
 
       {/* ADD TO DIARY MODAL */}
-      <Modal
-        visible={selectedFood !== null}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setSelectedFood(null)}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+      <AnimatedSheetModal visible={selectedFood !== null} onClose={() => setSelectedFood(null)}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, { color: colors.text }]} numberOfLines={1}>
-                  {selectedFood?.name}
+                  {shownFood?.name}
                 </Text>
-                {!!selectedFood?.brand && (
-                  <Text style={styles.modalSubtitle}>{selectedFood.brand}</Text>
+                {!!shownFood?.brand && (
+                  <Text style={styles.modalSubtitle}>{shownFood.brand}</Text>
                 )}
               </View>
               <TouchableOpacity
@@ -560,27 +607,78 @@ export default function SearchScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.modalBody}>
-              {/* Serving Size Input */}
-              <Text style={styles.inputLabel}>Serving Size (Grams)</Text>
-              <View style={styles.gramsInputRow}>
-                <TextInput
-                  style={styles.gramsInput}
-                  value={gramsInput}
-                  onChangeText={setGramsInput}
-                  keyboardType="numeric"
-                  placeholder="100"
-                  placeholderTextColor={colors.textLight}
-                  keyboardAppearance={isDark ? 'dark' : 'light'}
-                  selectTextOnFocus
-                />
-                <Text style={styles.gramsSuffix}>grams</Text>
-              </View>
+              {/* Grams / pieces switch: only for foods that have a piece weight */}
+              {!!shownFood?.serving_grams && (
+                <View style={styles.unitToggleRow}>
+                  <TouchableOpacity
+                    style={[styles.mealOptionBtn, unitMode === 'grams' && styles.mealOptionBtnActive]}
+                    onPress={() => setUnitMode('grams')}
+                  >
+                    <Text style={[styles.mealOptionText, unitMode === 'grams' && styles.mealOptionTextActive]}>
+                      Grams
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.mealOptionBtn, unitMode === 'pieces' && styles.mealOptionBtnActive]}
+                    onPress={() => setUnitMode('pieces')}
+                  >
+                    <Text style={[styles.mealOptionText, unitMode === 'pieces' && styles.mealOptionTextActive]}>
+                      {pieceNamePlural.charAt(0).toUpperCase() + pieceNamePlural.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
-              {selectedFood?.isOFF &&
-                selectedFood.calories_per_100g === 0 &&
-                selectedFood.protein_per_100g === 0 &&
-                selectedFood.fat_per_100g === 0 &&
-                selectedFood.carbs_per_100g === 0 && (
+              {unitMode === 'pieces' && !!shownFood?.serving_grams ? (
+                <>
+                  <Text style={styles.inputLabel}>How many {pieceNamePlural}?</Text>
+                  <View style={styles.gramsInputRow}>
+                    <TouchableOpacity style={styles.pieceStepBtn} onPress={() => adjustPieces(-1)}>
+                      <Ionicons name="remove" size={22} color={colors.text} />
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.gramsInput, styles.piecesInput]}
+                      value={piecesInput}
+                      onChangeText={setPiecesInput}
+                      keyboardType="decimal-pad"
+                      placeholder="1"
+                      placeholderTextColor={colors.textLight}
+                      keyboardAppearance={isDark ? 'dark' : 'light'}
+                      selectTextOnFocus
+                    />
+                    <TouchableOpacity style={styles.pieceStepBtn} onPress={() => adjustPieces(1)}>
+                      <Ionicons name="add" size={22} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.pieceHint}>
+                    1 {pieceName} ≈ {Math.round(Number(shownFood.serving_grams) * 10) / 10} g · total{' '}
+                    {Math.round(gramsNum * 10) / 10} g
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.inputLabel}>Serving Size (Grams)</Text>
+                  <View style={styles.gramsInputRow}>
+                    <TextInput
+                      style={styles.gramsInput}
+                      value={gramsInput}
+                      onChangeText={setGramsInput}
+                      keyboardType="numeric"
+                      placeholder="100"
+                      placeholderTextColor={colors.textLight}
+                      keyboardAppearance={isDark ? 'dark' : 'light'}
+                      selectTextOnFocus
+                    />
+                    <Text style={styles.gramsSuffix}>grams</Text>
+                  </View>
+                </>
+              )}
+
+              {shownFood?.isOFF &&
+                shownFood.calories_per_100g === 0 &&
+                shownFood.protein_per_100g === 0 &&
+                shownFood.fat_per_100g === 0 &&
+                shownFood.carbs_per_100g === 0 && (
                   <View style={styles.noDataNotice}>
                     <Text style={styles.noDataText}>
                       Open Food Facts has no nutrition data for this product, so all values are 0.
@@ -649,20 +747,10 @@ export default function SearchScreen() {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </AnimatedSheetModal>
 
       {/* CREATE CUSTOM FOOD MODAL */}
-      <Modal
-        visible={showCreateModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowCreateModal(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+      <AnimatedSheetModal visible={showCreateModal} onClose={() => setShowCreateModal(false)}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Create Custom Food</Text>
@@ -764,6 +852,37 @@ export default function SearchScreen() {
                 </View>
               </View>
 
+              {/* Only fill this in for foods you count in pieces (toast, egg...) */}
+              <Text style={[styles.inputLabel, { marginTop: 4, fontWeight: '700' }]}>
+                Piece (Optional)
+              </Text>
+              <View style={styles.macroInputRow}>
+                <View style={styles.macroInputCol}>
+                  <Text style={styles.macroInputLabel}>Weight of 1 piece (g)</Text>
+                  <TextInput
+                    style={styles.macroTextInput}
+                    placeholder="e.g. 30"
+                    placeholderTextColor={colors.textLight}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
+                    keyboardType="decimal-pad"
+                    value={customServingGrams}
+                    onChangeText={setCustomServingGrams}
+                  />
+                </View>
+                <View style={styles.macroInputCol}>
+                  <Text style={styles.macroInputLabel}>Piece name</Text>
+                  <TextInput
+                    style={styles.macroTextInput}
+                    placeholder="slice"
+                    placeholderTextColor={colors.textLight}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
+                    value={customServingName}
+                    onChangeText={setCustomServingName}
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+
               <TouchableOpacity
                 style={[styles.primaryButton, creatingFood && styles.buttonDisabled]}
                 onPress={handleCreateCustomFood}
@@ -777,8 +896,7 @@ export default function SearchScreen() {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </AnimatedSheetModal>
 
       {/* BARCODE SCANNER MODAL */}
       <Modal
@@ -1021,15 +1139,18 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   modalContent: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '88%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    flexShrink: 1,
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 18,
+    paddingHorizontal: 18,
+    paddingTop: 22,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
@@ -1193,6 +1314,31 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '700',
+  },
+  unitToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  pieceStepBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: Colors.surfaceVariant,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  piecesInput: {
+    marginHorizontal: 10,
+    textAlign: 'center',
+  },
+  pieceHint: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: -8,
+    marginBottom: 16,
   },
   scannerContainer: {
     flex: 1,

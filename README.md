@@ -14,7 +14,8 @@ The project is open source. The backend is a REST API built with Django, and the
 - Daily food diary with calories, protein, fat and carbs
 - Daily targets calculated from your height, weight, age and goal
 - Food search and barcode scanning (powered by Open Food Facts)
-- Custom foods for products that are not in the database
+- Custom foods for products that are not in the database (and you can delete your own foods)
+- Log by weight, or by pieces for foods you count (a slice of toast, an egg) when the product has a piece weight
 - Recent and frequently used foods for quick logging
 
 **Workouts**
@@ -40,7 +41,7 @@ The project is open source. The backend is a REST API built with Django, and the
 
 ```
 backend/    Django REST API
-mobile/     Expo app (not started yet)
+mobile/     Expo app (React Native, expo-router)
 ```
 
 ## Getting Started
@@ -81,6 +82,16 @@ python manage.py runserver
 
 The API runs at `http://127.0.0.1:8000/` and the admin panel at `/admin/`.
 
+### Mobile app setup
+
+```bash
+cd mobile
+npm install
+npx expo start
+```
+
+Open the app in Expo Go on your phone. The app finds the backend automatically when the phone and the computer are on the same Wi-Fi (run the backend with `python manage.py runserver 0.0.0.0:8000`).
+
 ## API
 
 | Method | Endpoint | Description |
@@ -90,17 +101,34 @@ The API runs at `http://127.0.0.1:8000/` and the admin panel at `/admin/`.
 | POST | `/api/auth/refresh/` | Refresh the access token |
 | GET, PATCH | `/api/auth/profile/` | View or update your profile |
 | GET | `/api/exercises/` | List exercises |
+| GET, POST | `/api/nutrition/foods/` | Search foods or add your own |
+| GET, PATCH, DELETE | `/api/nutrition/foods/<id>/` | View, edit or delete a food |
+| GET, POST | `/api/nutrition/entries/` | Food diary entries for a day / log a food |
+| GET | `/api/nutrition/summary/` | Daily totals, targets and what is left |
+| GET | `/api/nutrition/off-search/`, `/api/nutrition/off-barcode/` | Open Food Facts search and barcode lookup |
+| GET | `/api/nutrition/calorie-history/` | Calories per day for charts |
+| GET, POST | `/api/workouts/` | Workouts and their sets |
 
 ## Roadmap
 
 - [x] User registration, login and profile
 - [x] Exercise library
-- [ ] Nutrition models (foods and diary entries)
-- [ ] Daily calorie and macro targets
-- [ ] Open Food Facts integration (search and barcode)
-- [ ] Mobile app: login and daily diary
-- [ ] Mobile app: barcode scanner
-- [ ] Workout logging and progress charts
+- [x] Nutrition models (foods and diary entries)
+- [x] Daily calorie and macro targets
+- [x] Open Food Facts integration (search and barcode)
+- [x] Mobile app: login, onboarding and daily diary
+- [x] Mobile app: barcode scanner
+- [x] Mobile app: dark and light theme
+- [x] Mobile app: floating tab bar and animated bottom sheets
+- [x] Mobile app: delete your own foods
+- [x] Log foods by pieces (toast, eggs) when a piece weight is known
+- [x] Workout logging (templates, sets, weekly overview)
+- [x] Progress charts for calories and body weight
+- [ ] Progress charts for each exercise
+- [ ] Swipe to delete in the diary
+- [ ] Offline mode
+- [ ] Test on a real iPhone and fix what comes up
+- [ ] Deploy the backend to production
 - [ ] App Store release
 
 ## Contributing

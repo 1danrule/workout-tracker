@@ -229,9 +229,71 @@ def _get_serving_quantity(product_data):
     return None
 
 
+# Words in Open Food Facts' `serving_size` that mean "one countable piece".
+# A plain "30 g" or "1 portion" is NOT a piece (chips, cereal, pasta...),
+# so those products keep the grams-only input.
+PIECE_UNITS = {
+    'slice': 'slice', 'slices': 'slice', 'scheibe': 'slice', 'scheiben': 'slice',
+    'ломтик': 'slice', 'ломтика': 'slice', 'ломтиков': 'slice', 'ломоть': 'slice',
+    'toast': 'toast', 'toasts': 'toast', 'тост': 'toast', 'тоста': 'toast', 'тостов': 'toast',
+    'piece': 'piece', 'pieces': 'piece', 'pcs': 'piece', 'pc': 'piece',
+    'stück': 'piece', 'stk': 'piece', 'шт': 'piece', 'штука': 'piece',
+    'штуки': 'piece', 'штук': 'piece',
+    'egg': 'egg', 'eggs': 'egg', 'яйцо': 'egg', 'яйца': 'egg', 'яиц': 'egg',
+    'bar': 'bar', 'bars': 'bar', 'riegel': 'bar', 'батончик': 'bar',
+    'biscuit': 'biscuit', 'biscuits': 'biscuit', 'keks': 'biscuit',
+    'cookie': 'cookie', 'cookies': 'cookie', 'печенье': 'cookie',
+    'roll': 'roll', 'rolls': 'roll', 'brötchen': 'roll', 'булочка': 'roll',
+    'sausage': 'sausage', 'sausages': 'sausage', 'würstchen': 'sausage',
+    'сосиска': 'sausage', 'сосиски': 'sausage',
+}
+_PIECE_RE = re.compile(
+    r'(?:(\d+(?:[.,]\d+)?)\s*)?(?<!\w)('
+    + '|'.join(sorted((re.escape(u) for u in PIECE_UNITS), key=len, reverse=True))
+    + r')(?!\w)',
+    re.IGNORECASE,
+)
+
+
+def _get_piece_serving(product_data):
+    """
+    Returns (grams_per_piece, piece_name) when the label gives a serving that
+    is a countable piece, e.g. "1 slice (30 g)" -> (30.0, 'slice'),
+    "2 slices (60 g)" -> (30.0, 'slice'). Otherwise (None, '').
+    """
+    serving_size = product_data.get('serving_size')
+    if not isinstance(serving_size, str) or not serving_size.strip():
+        return None, ''
+
+    match = _PIECE_RE.search(serving_size)
+    if not match:
+        return None, ''
+
+    count_raw, unit = match.groups()
+    count = 1.0
+    if count_raw:
+        try:
+            count = float(count_raw.replace(',', '.'))
+        except ValueError:
+            count = 1.0
+    if count <= 0:
+        return None, ''
+
+    total_grams = _get_serving_quantity(product_data)
+    if not total_grams:
+        return None, ''
+
+    per_piece = round(total_grams / count, 1)
+    # Sanity check: a single piece should weigh between 1 g and 500 g.
+    if per_piece < 1 or per_piece > 500:
+        return None, ''
+    return per_piece, PIECE_UNITS[unit.lower()]
+
+
 def _parse_off_product(product_data, barcode=''):
     nutriments = product_data.get('nutriments', {})
     serving_qty = _get_serving_quantity(product_data)
+    piece_grams, piece_name = _get_piece_serving(product_data)
 
     def get_macro(keys_100g, keys_serving):
         for k in keys_100g:
@@ -351,6 +413,8 @@ def _parse_off_product(product_data, barcode=''):
         'protein_per_100g': float(protein),
         'fat_per_100g': float(fat),
         'carbs_per_100g': float(carbs),
+        'serving_grams': piece_grams,
+        'serving_name': piece_name,
         'image_url': product_data.get('image_url') or product_data.get('image_front_url', ''),
     }
 
@@ -416,6 +480,11 @@ class OpenFoodFactsBarcodeView(APIView):
                 'protein_per_100g': float(local_food.protein_per_100g),
                 'fat_per_100g': float(local_food.fat_per_100g),
                 'carbs_per_100g': float(local_food.carbs_per_100g),
+                'serving_grams': (
+                    float(local_food.serving_grams)
+                    if local_food.serving_grams is not None else None
+                ),
+                'serving_name': local_food.serving_name,
                 'image_url': '',
             })
 
