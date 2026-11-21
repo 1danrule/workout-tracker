@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
-from .models import Profile
+from .models import Profile, WeightLog
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -12,8 +12,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'email', 'password')
 
     def create(self, validated_data):
-        # create_user hashes the password properly, never store it as plain text.
-        # The Profile is created automatically by the post_save signal.
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data.get('email', ''),
@@ -33,3 +31,10 @@ class ProfileSerializer(serializers.ModelSerializer):
             'weight_kg', 'height_cm', 'age', 'goal',
             'sex', 'activity_level',
         )
+
+
+class WeightLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WeightLog
+        fields = ('id', 'weight_kg', 'date', 'created_at')
+        read_only_fields = ('id', 'created_at')

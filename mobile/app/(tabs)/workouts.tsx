@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import type { ThemeColors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   getWorkouts,
   createWorkout,
@@ -28,7 +29,17 @@ import {
 } from '../../services/api';
 import type { Workout, WorkoutSet, Exercise } from '../../types';
 
+const WORKOUT_PRESETS = [
+  { id: 'push', name: 'Push (Chest & Triceps)', tag: 'Upper Body', icon: 'flame-outline' as const },
+  { id: 'pull', name: 'Pull (Back & Biceps)', tag: 'Upper Body', icon: 'barbell-outline' as const },
+  { id: 'legs', name: 'Leg Day (Quads & Hams)', tag: 'Lower Body', icon: 'flash-outline' as const },
+  { id: 'full', name: 'Full Body Power', tag: 'Full Body', icon: 'body-outline' as const },
+  { id: 'arms', name: 'Arms & Core', tag: 'Isolation', icon: 'fitness-outline' as const },
+];
+
 export default function WorkoutsScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +66,63 @@ export default function WorkoutsScreen() {
   const [repsInput, setRepsInput] = useState('10');
   const [weightInput, setWeightInput] = useState('60');
   const [savingSet, setSavingSet] = useState(false);
+
+  // Compute Weekly Stats
+  const stats = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(now.getDate() - 7);
+    const dateStr = sevenDaysAgo.toISOString().split('T')[0];
+
+    const thisWeekWorkouts = workouts.filter((w) => w.date >= dateStr);
+    let totalSets = 0;
+    let totalVolumeKg = 0;
+
+    for (const w of thisWeekWorkouts) {
+      if (w.sets) {
+        totalSets += w.sets.length;
+        for (const s of w.sets) {
+          totalVolumeKg += (Number(s.reps) || 0) * (Number(s.weight_kg) || 0);
+        }
+      }
+    }
+
+    return {
+      count: thisWeekWorkouts.length,
+      sets: totalSets,
+      volume: Math.round(totalVolumeKg),
+    };
+  }, [workouts]);
+
+  const handleStartTemplate = async (templateName: string) => {
+    setCreatingWorkout(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const created = await createWorkout({
+        name: templateName,
+        date: today,
+        notes: '',
+      });
+      setWorkouts((prev) => [created, ...prev]);
+      setActiveWorkout(created);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Could not start workout session');
+    } finally {
+      setCreatingWorkout(false);
+    }
+  };
+
+  const adjustWeight = (delta: number) => {
+    const current = parseFloat(weightInput) || 0;
+    const next = Math.max(0, current + delta);
+    setWeightInput(String(next % 1 === 0 ? next : next.toFixed(1)));
+  };
+
+  const adjustReps = (delta: number) => {
+    const current = parseInt(repsInput, 10) || 0;
+    const next = Math.max(1, current + delta);
+    setRepsInput(String(next));
+  };
 
   // Load workouts & exercises
   const loadData = useCallback(async (showLoading = false) => {
@@ -243,22 +311,11 @@ export default function WorkoutsScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Top Action Bar */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          style={styles.startWorkoutButton}
-          onPress={() => setShowStartModal(true)}
-        >
-          <Ionicons name="flash" size={20} color={Colors.white} />
-          <Text style={styles.startWorkoutText}>Start New Workout</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Workouts History List */}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Workouts History List with Rich Header */}
       {loading && !refreshing ? (
         <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -266,11 +323,101 @@ export default function WorkoutsScreen() {
           keyExtractor={(item) => `workout-${item.id}`}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+          }
+          ListHeaderComponent={
+            <View style={styles.listHeaderContainer}>
+              {/* Weekly Overview Card */}
+              <View style={styles.statsCard}>
+                <View style={styles.statsHeaderRow}>
+                  <View style={styles.statsHeaderTitleRow}>
+                    <Ionicons name="stats-chart" size={18} color={colors.primary} />
+                    <Text style={styles.statsTitle}>Weekly Overview</Text>
+                  </View>
+                  <Text style={styles.statsSubtitle}>Past 7 days</Text>
+                </View>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{stats.count}</Text>
+                    <Text style={styles.statLabel}>{stats.count === 1 ? 'Workout' : 'Workouts'}</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{stats.sets}</Text>
+                    <Text style={styles.statLabel}>{stats.sets === 1 ? 'Set' : 'Sets'}</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>
+                      {stats.volume >= 1000 ? (stats.volume / 1000).toFixed(1) + 't' : stats.volume + 'kg'}
+                    </Text>
+                    <Text style={styles.statLabel}>Volume</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Quick Start Presets Carousel */}
+              <View style={styles.sectionHeaderRow}>
+                <View>
+                  <Text style={styles.sectionTitle}>Quick Start</Text>
+                  <Text style={styles.sectionSubtitle}>1-tap to start training</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.customStartBtn}
+                  onPress={() => setShowStartModal(true)}
+                >
+                  <Ionicons name="add" size={16} color={colors.primary} />
+                  <Text style={styles.customStartBtnText}>Custom</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.presetsScrollContent}
+              >
+                {WORKOUT_PRESETS.map((preset) => (
+                  <TouchableOpacity
+                    key={preset.id}
+                    style={styles.presetCard}
+                    activeOpacity={0.7}
+                    onPress={() => handleStartTemplate(preset.name)}
+                    disabled={creatingWorkout}
+                  >
+                    <View style={styles.presetIconWrap}>
+                      <Ionicons name={preset.icon} size={22} color={colors.primary} />
+                    </View>
+                    <Text style={styles.presetName} numberOfLines={1}>
+                      {preset.name}
+                    </Text>
+                    <View style={styles.presetTagBadge}>
+                      <Text style={styles.presetTagText}>{preset.tag}</Text>
+                    </View>
+                    <View style={styles.presetActionRow}>
+                      <Text style={styles.presetActionText}>Start</Text>
+                      <Ionicons name="arrow-forward-circle" size={16} color={colors.primary} />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Workout History Section Title */}
+              <View style={[styles.sectionHeaderRow, { marginTop: 20 }]}>
+                <Text style={styles.sectionTitle}>Workout History</Text>
+                <Text style={styles.sectionCounter}>
+                  {workouts.length} {workouts.length === 1 ? 'session' : 'sessions'}
+                </Text>
+              </View>
+            </View>
           }
           renderItem={({ item }) => {
             const isExpanded = expandedWorkoutId === item.id;
             const setCount = item.sets?.length || 0;
+            const totalVolume = (item.sets || []).reduce(
+              (sum, s) => sum + (Number(s.reps) || 0) * (Number(s.weight_kg) || 0),
+              0
+            );
+            const exerciseCount = new Set((item.sets || []).map((s) => s.exercise)).size;
 
             // Group sets for display in expanded view
             const grouped = new Map<string, WorkoutSet[]>();
@@ -290,9 +437,20 @@ export default function WorkoutsScreen() {
                   onPress={() => setExpandedWorkoutId(isExpanded ? null : item.id)}
                 >
                   <View style={styles.workoutHeaderLeft}>
-                    <Text style={styles.workoutName}>{item.name}</Text>
+                    <View style={styles.workoutTitleRow}>
+                      <Text style={[styles.workoutName, { color: colors.text }]}>{item.name}</Text>
+                      {totalVolume > 0 && (
+                        <View style={styles.volumeBadge}>
+                          <Text style={styles.volumeBadgeText}>
+                            {totalVolume >= 1000
+                              ? (totalVolume / 1000).toFixed(1) + ' t'
+                              : totalVolume + ' kg'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={styles.workoutDate}>
-                      {item.date} • {setCount} {setCount === 1 ? 'set' : 'sets'}
+                      {item.date} • {exerciseCount} {exerciseCount === 1 ? 'exercise' : 'exercises'} • {setCount} {setCount === 1 ? 'set' : 'sets'}
                     </Text>
                     {!!item.notes && <Text style={styles.workoutNotes}>{item.notes}</Text>}
                   </View>
@@ -303,12 +461,12 @@ export default function WorkoutsScreen() {
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={styles.deleteWorkoutBtn}
                     >
-                      <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                      <Ionicons name="trash-outline" size={18} color={colors.error} />
                     </TouchableOpacity>
                     <Ionicons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={20}
-                      color={Colors.textSecondary}
+                      color={colors.textSecondary}
                       style={{ marginLeft: 6 }}
                     />
                   </View>
@@ -341,10 +499,10 @@ export default function WorkoutsScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="barbell-outline" size={54} color={Colors.textLight} />
+              <Ionicons name="barbell-outline" size={54} color={colors.textLight} />
               <Text style={styles.emptyTitle}>No Workouts Yet</Text>
               <Text style={styles.emptySubtitle}>
-                Tap "Start New Workout" above to begin your first training session!
+                Tap any Quick Start template above or "Custom" to begin your first training session!
               </Text>
             </View>
           }
@@ -362,33 +520,62 @@ export default function WorkoutsScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Workout Session</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>New Workout Session</Text>
               <TouchableOpacity
                 onPress={() => setShowStartModal(false)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Quick Name Presets</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.modalPresetsRow}
+              >
+                {['Push Day', 'Pull Day', 'Leg Day', 'Full Body', 'Chest & Arms', 'Back & Abs'].map((pName) => (
+                  <TouchableOpacity
+                    key={pName}
+                    style={[
+                      styles.modalPresetChip,
+                      newWorkoutName === pName && styles.modalPresetChipActive,
+                    ]}
+                    onPress={() => setNewWorkoutName(pName)}
+                  >
+                    <Text
+                      style={[
+                        styles.modalPresetChipText,
+                        newWorkoutName === pName && styles.modalPresetChipTextActive,
+                      ]}
+                    >
+                      {pName}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
               <Text style={styles.inputLabel}>Workout Name *</Text>
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Chest & Triceps, Leg Day"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
+                keyboardAppearance={isDark ? 'dark' : 'light'}
                 value={newWorkoutName}
                 onChangeText={setNewWorkoutName}
-                autoFocus
+                autoFocus={false}
               />
 
               <Text style={styles.inputLabel}>Notes (Optional)</Text>
               <TextInput
                 style={[styles.textInput, { height: 70, textAlignVertical: 'top' }]}
                 placeholder="e.g. Focused on progressive overload"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={colors.textLight}
+                keyboardAppearance={isDark ? 'dark' : 'light'}
                 value={newWorkoutNotes}
                 onChangeText={setNewWorkoutNotes}
                 multiline
@@ -400,7 +587,7 @@ export default function WorkoutsScreen() {
                 disabled={creatingWorkout}
               >
                 {creatingWorkout ? (
-                  <ActivityIndicator color={Colors.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.primaryButtonText}>Start Workout</Text>
                 )}
@@ -439,7 +626,7 @@ export default function WorkoutsScreen() {
           <ScrollView contentContainerStyle={styles.activeScrollContent}>
             {groupedActiveSets.length === 0 ? (
               <View style={styles.activeEmptyState}>
-                <Ionicons name="fitness-outline" size={54} color={Colors.textLight} />
+                <Ionicons name="fitness-outline" size={54} color={colors.textLight} />
                 <Text style={styles.activeEmptyTitle}>No Exercises Added</Text>
                 <Text style={styles.activeEmptySubtitle}>
                   Add exercises from the library below to start recording your sets.
@@ -469,7 +656,7 @@ export default function WorkoutsScreen() {
                         style={styles.addSetMiniButton}
                         onPress={() => handleOpenAddSet(exObj)}
                       >
-                        <Ionicons name="add" size={16} color={Colors.primary} />
+                        <Ionicons name="add" size={16} color={colors.primary} />
                         <Text style={styles.addSetMiniText}>Add Set</Text>
                       </TouchableOpacity>
                     </View>
@@ -498,7 +685,7 @@ export default function WorkoutsScreen() {
                             style={{ width: 34, alignItems: 'center' }}
                             onPress={() => handleDeleteSet(set.id)}
                           >
-                            <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                            <Ionicons name="trash-outline" size={16} color={colors.error} />
                           </TouchableOpacity>
                         </View>
                       ))}
@@ -513,7 +700,7 @@ export default function WorkoutsScreen() {
               style={styles.chooseExerciseButton}
               onPress={() => setShowExercisePicker(true)}
             >
-              <Ionicons name="add-circle" size={22} color={Colors.primary} />
+              <Ionicons name="add-circle" size={22} color={colors.primary} />
               <Text style={styles.chooseExerciseText}>+ Add Exercise from Library</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -526,23 +713,23 @@ export default function WorkoutsScreen() {
         animationType="slide"
         onRequestClose={() => setShowExercisePicker(false)}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Exercise Library</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Exercise Library</Text>
             <TouchableOpacity
               onPress={() => setShowExercisePicker(false)}
               style={styles.modalCloseButton}
             >
-              <Ionicons name="close" size={24} color={Colors.textSecondary} />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.pickerSearchBar}>
-            <Ionicons name="search" size={20} color={Colors.textSecondary} style={{ marginRight: 8 }} />
+            <Ionicons name="search" size={20} color={colors.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Filter by name or muscle group..."
-              placeholderTextColor={Colors.textLight}
+              placeholderTextColor={colors.textLight}
               value={exerciseSearch}
               onChangeText={setExerciseSearch}
               clearButtonMode="while-editing"
@@ -570,7 +757,7 @@ export default function WorkoutsScreen() {
                     </Text>
                   )}
                 </View>
-                <Ionicons name="add-circle-outline" size={26} color={Colors.primary} />
+                <Ionicons name="add-circle-outline" size={26} color={colors.primary} />
               </TouchableOpacity>
             )}
             ListEmptyComponent={
@@ -593,10 +780,10 @@ export default function WorkoutsScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>{selectedExerciseForSet?.name}</Text>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>{selectedExerciseForSet?.name}</Text>
                 <Text style={styles.modalSubtitle}>
                   {selectedExerciseForSet?.muscle_group.toUpperCase()}
                 </Text>
@@ -605,7 +792,7 @@ export default function WorkoutsScreen() {
                 onPress={() => setSelectedExerciseForSet(null)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -616,10 +803,37 @@ export default function WorkoutsScreen() {
                   <TextInput
                     style={styles.setNumericInput}
                     keyboardType="numeric"
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     value={weightInput}
                     onChangeText={setWeightInput}
                     selectTextOnFocus
                   />
+                  <View style={styles.stepperRow}>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustWeight(-5)}
+                    >
+                      <Text style={styles.stepperBtnText}>-5</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustWeight(-2.5)}
+                    >
+                      <Text style={styles.stepperBtnText}>-2.5</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.stepperBtn, styles.stepperBtnPositive]}
+                      onPress={() => adjustWeight(2.5)}
+                    >
+                      <Text style={[styles.stepperBtnText, styles.stepperBtnPositiveText]}>+2.5</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.stepperBtn, styles.stepperBtnPositive]}
+                      onPress={() => adjustWeight(5)}
+                    >
+                      <Text style={[styles.stepperBtnText, styles.stepperBtnPositiveText]}>+5</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <View style={styles.setInputCol}>
@@ -627,10 +841,31 @@ export default function WorkoutsScreen() {
                   <TextInput
                     style={styles.setNumericInput}
                     keyboardType="numeric"
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     value={repsInput}
                     onChangeText={setRepsInput}
                     selectTextOnFocus
                   />
+                  <View style={styles.stepperRow}>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustReps(-1)}
+                    >
+                      <Text style={styles.stepperBtnText}>-1</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.stepperBtn, styles.stepperBtnPositive]}
+                      onPress={() => adjustReps(1)}
+                    >
+                      <Text style={[styles.stepperBtnText, styles.stepperBtnPositiveText]}>+1</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.stepperBtn, styles.stepperBtnPositive]}
+                      onPress={() => adjustReps(2)}
+                    >
+                      <Text style={[styles.stepperBtnText, styles.stepperBtnPositiveText]}>+2</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
@@ -640,7 +875,7 @@ export default function WorkoutsScreen() {
                 disabled={savingSet}
               >
                 {savingSet ? (
-                  <ActivityIndicator color={Colors.white} />
+                  <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={styles.primaryButtonText}>Record Set</Text>
                 )}
@@ -653,7 +888,7 @@ export default function WorkoutsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -686,6 +921,223 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingBottom: 110,
+  },
+  listHeaderContainer: {
+    marginBottom: 8,
+  },
+  statsCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  statsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  statsHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statsTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  statsSubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: Colors.surfaceVariant,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  statBox: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statVal: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.border,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  sectionCounter: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  customStartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+  },
+  customStartBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primaryDark,
+  },
+  presetsScrollContent: {
+    paddingVertical: 4,
+    gap: 10,
+  },
+  presetCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    padding: 12,
+    width: 150,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'space-between',
+  },
+  presetIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  presetName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  presetTagBadge: {
+    backgroundColor: Colors.surfaceVariant,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+  },
+  presetTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  presetActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: 6,
+  },
+  presetActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  workoutTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 6,
+  },
+  volumeBadge: {
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  volumeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primaryDark,
+  },
+  modalPresetsRow: {
+    gap: 8,
+    paddingBottom: 14,
+  },
+  modalPresetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.surfaceVariant,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalPresetChipActive: {
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
+  },
+  modalPresetChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  modalPresetChipTextActive: {
+    color: Colors.primaryDark,
+    fontWeight: '700',
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 6,
+  },
+  stepperBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: Colors.surfaceVariant,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  stepperBtnPositive: {
+    backgroundColor: Colors.primaryLight,
+    borderColor: 'transparent',
+  },
+  stepperBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  stepperBtnPositiveText: {
+    color: Colors.primaryDark,
   },
   workoutCard: {
     backgroundColor: Colors.surface,
@@ -733,7 +1185,7 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.surfaceVariant,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: Colors.background,
   },
   emptySetsText: {
     fontSize: 13,
@@ -974,7 +1426,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 8,
     paddingHorizontal: 10,
-    backgroundColor: '#EBEBEB',
+    backgroundColor: Colors.border,
   },
   setsTableHeadCol: {
     fontSize: 11,
@@ -987,7 +1439,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: Colors.border,
   },
   setsTableColText: {
     fontSize: 14,

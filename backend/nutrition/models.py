@@ -26,6 +26,15 @@ class Food(models.Model):
     fat_per_100g = models.DecimalField(max_digits=6, decimal_places=2)
     carbs_per_100g = models.DecimalField(max_digits=6, decimal_places=2)
 
+    # Optional: weight of one piece (a slice of toast, one egg, a bar...).
+    # Only set for foods that people actually count in pieces. It is NULL for
+    # things you weigh (pasta, cereal, chips, chicken), so the app only shows
+    # the "pieces" option when this is filled in.
+    serving_grams = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True
+    )
+    serving_name = models.CharField(max_length=30, blank=True)
+
     source = models.CharField(
         max_length=20, choices=Source.choices, default=Source.MANUAL
     )

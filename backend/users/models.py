@@ -44,3 +44,24 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'Profile of {self.user.username}'
+
+
+class WeightLog(models.Model):
+    """
+    Daily weight measurement to track weight changes over time.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='weight_logs',
+    )
+    weight_kg = models.DecimalField(max_digits=5, decimal_places=2)
+    date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'created_at']
+        unique_together = ('user', 'date')
+
+    def __str__(self):
+        return f'{self.user.username}: {self.weight_kg}kg on {self.date}'

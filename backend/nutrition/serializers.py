@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from .models import Food, FoodEntry
@@ -13,6 +15,7 @@ class FoodSerializer(serializers.ModelSerializer):
             'id', 'name', 'brand', 'barcode',
             'calories_per_100g', 'protein_per_100g',
             'fat_per_100g', 'carbs_per_100g',
+            'serving_grams', 'serving_name',
             'source', 'is_custom',
         )
         read_only_fields = ('source',)
@@ -21,7 +24,22 @@ class FoodSerializer(serializers.ModelSerializer):
             'protein_per_100g': {'min_value': 0},
             'fat_per_100g': {'min_value': 0},
             'carbs_per_100g': {'min_value': 0},
+            'serving_grams': {'min_value': Decimal('0.1')},
         }
+
+    def validate(self, attrs):
+        # A piece weight and a piece name only make sense together.
+        grams = attrs.get(
+            'serving_grams', self.instance.serving_grams if self.instance else None
+        )
+        name = attrs.get(
+            'serving_name', self.instance.serving_name if self.instance else ''
+        )
+        if grams is None:
+            attrs['serving_name'] = ''
+        elif not name.strip():
+            attrs['serving_name'] = 'piece'
+        return attrs
 
     def get_is_custom(self, obj):
         return obj.owner_id is not None

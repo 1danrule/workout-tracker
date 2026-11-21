@@ -24,6 +24,9 @@ export interface Food {
   protein_per_100g: number;
   fat_per_100g: number;
   carbs_per_100g: number;
+  // Weight of one piece (toast slice, egg...). Empty for foods you weigh.
+  serving_grams?: number | string | null;
+  serving_name?: string;
   source: 'manual' | 'open_food_facts';
   is_custom: boolean;
 }
@@ -96,5 +99,31 @@ export interface OFFSearchResult {
   protein_per_100g: number;
   fat_per_100g: number;
   carbs_per_100g: number;
+  serving_grams?: number | string | null;
+  serving_name?: string;
   image_url: string;
+}
+
+export interface WeightLog {
+  id: number;
+  weight_kg: number;
+  date: string;
+  created_at: string;
+}
+
+export interface CalorieDay {
+  date: string;
+  calories: number;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+  target_calories: number | null;
+}
+
+export interface CalorieHistoryResponse {
+  days: number;
+  start_date: string;
+  end_date: string;
+  target_calories: number | null;
+  history: CalorieDay[];
 }
