@@ -949,6 +949,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingBottom: 110,
   },
   foodItem: {
     flexDirection: 'row',

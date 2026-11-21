@@ -461,7 +461,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 110,
   },
   userCard: {
     flexDirection: 'row',
