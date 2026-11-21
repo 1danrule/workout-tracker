@@ -121,10 +121,26 @@ COMMON_FOODS = [
     {
         'name': 'Макароны (вареные)',
         'brand': 'Гарнир',
+        'calories': '103.00',
+        'protein': '3.80',
+        'fat': '0.60',
+        'carbs': '20.00',
+    },
+    {
+        'name': 'Макароны al dente (вареные)',
+        'brand': 'Гарнир',
         'calories': '158.00',
         'protein': '5.80',
         'fat': '0.90',
         'carbs': '31.00',
+    },
+    {
+        'name': 'Макароны (сухие)',
+        'brand': 'Бакалея',
+        'calories': '350.00',
+        'protein': '12.00',
+        'fat': '1.50',
+        'carbs': '71.00',
     },
     {
         'name': 'Гречка (вареная на воде)',
@@ -495,7 +511,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         created_count = 0
         for item in COMMON_FOODS:
-            _, created = Food.objects.get_or_create(
+            _, created = Food.objects.update_or_create(
                 name=item['name'],
                 owner=None,  # Global shared food
                 defaults={

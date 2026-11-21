@@ -38,7 +38,7 @@ def get_date_param(request):
 
 
 class FoodSearchFilter(filters.SearchFilter):
-    """Normalize common typos/endings like варенные -> вареные, жаренная -> жареная."""
+    """Normalize common typos/endings like варенные -> вареные, жаренная -> жареная, and support case variations."""
     def get_search_terms(self, request):
         terms = super().get_search_terms(request)
         normalized = []
@@ -46,6 +46,34 @@ class FoodSearchFilter(filters.SearchFilter):
             t = term.replace('варенн', 'варен').replace('жаренн', 'жарен').replace('запеченн', 'запечен')
             normalized.append(t)
         return normalized
+
+    def filter_queryset(self, request, queryset, view):
+        search_fields = self.get_search_fields(view, request)
+        search_terms = self.get_search_terms(request)
+
+        if not search_fields or not search_terms:
+            return queryset
+
+        orm_lookups = [
+            self.construct_search(str(search_field), queryset)
+            for search_field in search_fields
+        ]
+
+        conditions = []
+        for term in search_terms:
+            term_variants = {term, term.lower(), term.capitalize()}
+            term_condition = Q()
+            for variant in term_variants:
+                for orm_lookup in orm_lookups:
+                    term_condition |= Q(**{orm_lookup: variant})
+            conditions.append(term_condition)
+
+        if conditions:
+            from functools import reduce
+            import operator
+            queryset = queryset.filter(reduce(operator.and_, conditions))
+
+        return queryset
 
 
 class FoodListCreateView(generics.ListCreateAPIView):
